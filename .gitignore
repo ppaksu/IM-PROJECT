@@ -1,0 +1,16 @@
+# Foundry build artifacts
+out/
+cache/
+broadcast/
+
+# Node
+node_modules/
+
+# secrets and local-only files
+.env
+.env.*
+*.local
+bank-secret*
+
+# macOS
+.DS_Store

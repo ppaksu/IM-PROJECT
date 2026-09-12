@@ -1,0 +1,42 @@
+[
+  {
+    "id": "A",
+    "accountNumber": "110-234-567890",
+    "holderAlias": "김대구",
+    "status": "ELIGIBLE",
+    "kycComplete": true,
+    "note": "정상 계좌. D1 시나리오 대상"
+  },
+  {
+    "id": "B",
+    "accountNumber": "110-234-111111",
+    "holderAlias": "이수성",
+    "status": "ELIGIBLE",
+    "kycComplete": true,
+    "note": "정상 계좌. 두 epoch 모두 적격 유지"
+  },
+  {
+    "id": "C",
+    "accountNumber": "110-234-222222",
+    "holderAlias": "박달서",
+    "status": "ELIGIBLE",
+    "kycComplete": true,
+    "note": "D2 시나리오에서 대포통장으로 판정할 계좌"
+  },
+  {
+    "id": "D",
+    "accountNumber": "110-234-333333",
+    "holderAlias": "최북구",
+    "status": "SUSPENDED",
+    "kycComplete": true,
+    "note": "이미 정지된 계좌. 트리에 들어가지 않는다"
+  },
+  {
+    "id": "E",
+    "accountNumber": "110-234-444444",
+    "holderAlias": "정동구",
+    "status": "ELIGIBLE",
+    "kycComplete": false,
+    "note": "고객확인 미완료. 상태값과 무관하게 적격이 아니다"
+  }
+]

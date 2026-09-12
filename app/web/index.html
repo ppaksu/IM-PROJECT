@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>수취계좌 안전성 검증 데모</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --line: #d9dde3;
+    --text: #1b1f24;
+    --muted: #6b7280;
+    --allow: #12805c;
+    --block: #b42318;
+    --unknown: #b54708;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font: 15px/1.6 -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .columns { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 9px 11px; font-size: 15px;
+    border: 1px solid var(--line); border-radius: 7px; font-family: inherit;
+  }
+  button {
+    padding: 9px 14px; font-size: 14px; font-family: inherit; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 7px; background: #fff;
+  }
+  button.primary { background: var(--text); color: #fff; border-color: var(--text); }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .mt { margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; }
+  .verdict { font-size: 22px; font-weight: 700; margin-bottom: 2px; }
+  .verdict small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-top: 4px; }
+  .ALLOW { color: var(--allow); }
+  .BLOCK { color: var(--block); }
+  .NO_SAFETY_ASSERTION { color: var(--unknown); }
+  .timeline { margin: 12px 0 0; padding: 0; list-style: none; font-size: 13px; }
+  .timeline li { padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  .timeline .detail { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .hidden { display: none; }
+  .stub { margin-top: 18px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <h1>수취계좌 안전성 검증 데모</h1>
+  <p class="sub">송금은행은 계좌번호와 실명 대신 영지식증명 하나만 검증한다.</p>
+
+  <div class="columns">
+    <section class="panel">
+      <h2>송금은행 화면</h2>
+      <label for="account">수취계좌번호</label>
+      <input id="account" value="110-234-567890" autocomplete="off" />
+      <div class="row mt">
+        <button class="primary" id="send">이체 요청</button>
+        <span class="tag" id="epoch">Root epoch -</span>
+      </div>
+
+      <div id="result" class="hidden mt">
+        <div class="verdict" id="verdict"></div>
+        <ul class="timeline" id="timeline"></ul>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>수취은행 관리</h2>
+      <table>
+        <thead>
+          <tr><th>계좌</th><th>예금주</th><th>상태</th><th></th></tr>
+        </thead>
+        <tbody id="accounts"></tbody>
+      </table>
+      <div class="row mt">
+        <button id="rebuild">Root 재생성</button>
+        <span class="tag">폐기는 다음 Root에서 트리에서도 빠진다</span>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel mt">
+    <h2>감사 로그</h2>
+    <table>
+      <thead><tr><th>시각</th><th>계좌</th><th>상태</th><th>결정</th><th>epoch</th></tr></thead>
+      <tbody id="audit"></tbody>
+    </table>
+  </section>
+
+  <p class="stub">1일차 스텁이다. 증명 생성과 검증은 아직 고정값으로 동작한다.</p>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+
+async function api(path, body) {
+  const response = await fetch(path, body
+    ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
+    : undefined);
+  return response.json();
+}
+
+async function refresh() {
+  const [state, log] = await Promise.all([api("/admin/accounts"), api("/api/v1/audit-log")]);
+
+  const REASON = {
+    ELIGIBLE: "적격",
+    SUSPENDED: "정지",
+    REVOKED: "폐기",
+    EXPIRED: "기한 경과",
+    KYC_INCOMPLETE: "고객확인 미완료",
+  };
+
+  $("epoch").textContent = `Root epoch ${state.rootEpoch}`;
+  $("accounts").innerHTML = state.accounts.map((account) => {
+    // 폐기와 복구는 hot revocation 목록에만 작용한다.
+    // 고객확인 미완료처럼 record 자체가 부적격인 계좌는 버튼을 막는다.
+    const action = account.eligible ? "revoke" : account.hot ? "restore" : null;
+    const button = action
+      ? `<button data-account="${account.accountNumber}" data-action="${action}">
+           ${action === "revoke" ? "폐기" : "복구"}</button>`
+      : `<button disabled>복구</button>`;
+    return `
+    <tr>
+      <td>${account.accountNumber}</td>
+      <td>${account.holderAlias}</td>
+      <td>${REASON[account.reason] ?? account.reason}</td>
+      <td>${button}</td>
+    </tr>`;
+  }).join("");
+
+  $("audit").innerHTML = log.entries.map((entry) => `
+    <tr>
+      <td>${entry.at.slice(11, 19)}</td>
+      <td>${entry.accountNumber ?? "-"}</td>
+      <td>${entry.status}</td>
+      <td class="${entry.decision}">${entry.decision}</td>
+      <td>${entry.rootEpoch ?? "-"}</td>
+    </tr>`).join("");
+}
+
+$("accounts").addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-account]");
+  if (!button) return;
+  await api(`/admin/${button.dataset.action}`, { accountNumber: button.dataset.account });
+  refresh();
+});
+
+$("rebuild").addEventListener("click", async () => {
+  await api("/admin/rebuild-root", {});
+  refresh();
+});
+
+$("send").addEventListener("click", async () => {
+  const button = $("send");
+  button.disabled = true;
+  try {
+    const result = await api("/api/v1/transfer/check", { accountNumber: $("account").value });
+    const label = { ALLOW: "송금 진행", BLOCK: "송금 차단", NO_SAFETY_ASSERTION: "판단 불가" };
+    $("result").classList.remove("hidden");
+    $("verdict").className = `verdict ${result.decision}`;
+    $("verdict").innerHTML =
+      `${label[result.decision] ?? result.decision}<small>${result.status}` +
+      `${result.rootEpoch ? ` · Root epoch ${result.rootEpoch}` : ""}</small>`;
+    $("timeline").innerHTML = (result.timeline ?? []).map((step) => `
+      <li>${step.name}<div class="detail">${step.detail ?? ""}</div></li>`).join("");
+  } finally {
+    button.disabled = false;
+    refresh();
+  }
+});
+
+refresh();
+</script>
+</body>
+</html>

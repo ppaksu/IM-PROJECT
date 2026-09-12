@@ -1,8 +1,48 @@
+# ZK 수취계좌 검증 데모
+
+송금 전에 수취계좌가 현재 안전 기준을 통과했는지를, 개인정보를 넘기지 않고 확인하는 은행 간
+검증 계층이다. 설계와 인터페이스 계약은 `IM_PROJECT_PLAN.md`에 있다.
+
+## 실행
+
+```bash
+node app/dev.js
+```
+
+세 서버가 뜨고 화면은 http://127.0.0.1:8080 이다.
+
+| 서버 | 포트 | 하는 일 |
+|---|---|---|
+| 송금은행 중계 | 8080 | 화면 서빙, nonce·증명·검증 호출 순서 |
+| Verifier API | 8787 | nonce 발급, 검증 판정 |
+| 수취은행 | 8788 | 계좌 record, hot revocation, 증명 발급 |
+
+**현재는 1일차 스텁이다.** 흐름은 끝에서 끝까지 돌지만 증명 생성과 검증은 고정값이다.
+`// TODO(보안)`, `// TODO(백엔드)` 주석이 실물로 바뀔 자리를 표시한다.
+
+인터페이스 계약 샘플은 `app/fixtures/`에 있다. 화면과 중계 서버는 이 파일을 기준으로 만든다.
+
+## Registry 기준값
+
+`app/fixtures/registry.sample.json`은 샘플이 아니라 **테스트 벡터**다. 같은 계좌 데이터로
+Registry를 구현했을 때 여기 적힌 `eligibilityRoot`가 그대로 나와야 한다. 다르면 값 표현이나
+Poseidon 사용법이 어긋난 것이다. 이 어긋남은 증명이 조용히 실패하는 형태로 나타나서 원인을
+찾기 어렵다.
+
+```bash
+node script/make-registry-fixture.js
+```
+
+파일을 손으로 고치지 말고 이 스크립트로 다시 만든다. 스크립트는 각 record의 Merkle path가
+Root를 재현하는지 스스로 확인하고, 실패하면 멈춘다.
+
+값 변환은 `app/lib/field.js` 한 곳에서만 한다. 이 파일은 보안 담당과 백엔드 담당만 고친다.
+
+---
+
 # Eligibility Anchor
 
-ZK 기반 수취계좌 검증 서비스의 Anchor Contract다.
-
-전체 설계와 구현 계획은 `IM_PROJECT_PLAN.md`에 있다. 이 컨트랙트는 계획서 2.9절에 해당한다.
+ZK 기반 수취계좌 검증 서비스의 Anchor Contract다. 계획서 2.9절에 해당한다.
 
 ## 컨트랙트가 하는 일
 

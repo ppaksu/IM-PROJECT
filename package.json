@@ -1,0 +1,17 @@
+{
+  "name": "im-project",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ZK recipient-account eligibility verification demo",
+  "scripts": {
+    "dev": "node app/dev.js",
+    "recipient-bank": "node app/recipient-bank/server.js",
+    "verifier": "node app/verifier/server.js",
+    "sender-bank": "node app/sender-bank/server.js",
+    "fixture": "node script/make-registry-fixture.js"
+  },
+  "dependencies": {
+    "circomlibjs": "^0.1.7"
+  }
+}

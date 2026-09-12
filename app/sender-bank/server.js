@@ -44,11 +44,14 @@ async function checkTransfer(body) {
   );
 
   if (proofResponse.body.result !== "PROOF") {
-    const status = proofResponse.body.status === "UNAVAILABLE" ? "UNAVAILABLE" : "NOT_ELIGIBLE";
-    const decision = status === "UNAVAILABLE" ? "NO_SAFETY_ASSERTION" : "BLOCK";
-    mark("수취은행 증명 발급", "거절");
+    // 적격 아님이라고 명시한 경우에만 차단이다. 그 밖의 응답은 장애로 본다.
+    // 알아볼 수 없는 응답을 차단으로 읽으면 장애가 정상 계좌의 차단으로 둔갑한다.
+    const blocked = proofResponse.body.status === "NOT_ELIGIBLE";
+    const status = blocked ? "NOT_ELIGIBLE" : "UNAVAILABLE";
+    const decision = blocked ? "BLOCK" : "NO_SAFETY_ASSERTION";
+    mark("수취은행 증명 발급", blocked ? "거절" : "응답 없음");
     audit({ accountNumber, status, decision });
-    return { status: 200, body: { status, decision, timeline } };
+    return { status: blocked ? 200 : 503, body: { status, decision, timeline } };
   }
   mark("수취은행 증명 발급", "성공");
 

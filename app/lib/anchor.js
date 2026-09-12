@@ -70,7 +70,21 @@ export function anchorOf(bankId, rootEpoch) {
   );
 }
 
-export function anchorRoot({ bankId, eligibilityRoot, policyHash, rootEpoch, validUntil, meta, privateKey }) {
+/** 은행의 현재 회차. 아직 앵커가 없으면 0이다. */
+export function latestEpoch(bankId) {
+  const raw = cast([
+    "call",
+    anchorAddress(),
+    "latestEpoch(bytes32)(uint64)",
+    bankId,
+    "--rpc-url",
+    rpcUrl(),
+  ]);
+  return Number(raw.split(/\s+/)[0]);
+}
+
+export function anchorRoot({ bankId, eligibilityRoot, policyHash, rootEpoch, validUntil, meta }) {
+  const privateKey = process.env.ANCHOR_ISSUER_KEY || config.anchor.issuerKey;
   return cast([
     "send",
     anchorAddress(),

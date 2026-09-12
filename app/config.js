@@ -23,6 +23,8 @@ export const config = {
     rpcUrl: "http://127.0.0.1:8545",
     // 배포 스크립트가 build/anchor.json에 주소를 적는다. 환경변수로도 덮어쓸 수 있다.
     address: "",
+    // 로컬 anvil의 첫 계정. 로컬 체인 밖에서는 ANCHOR_ISSUER_KEY로 덮어쓴다.
+    issuerKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
   },
 };
 

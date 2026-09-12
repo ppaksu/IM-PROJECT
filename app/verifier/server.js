@@ -18,6 +18,32 @@ const bankIdCache = new Map();
 
 const now = () => Math.floor(Date.now() / 1000);
 
+const isHex = (value) => typeof value === "string" && /^0x[0-9a-fA-F]{1,64}$/.test(value);
+const isName = (value) => typeof value === "string" && value.length > 0 && value.length <= 64;
+
+/**
+ * 본문이 우리가 다룰 수 있는 모양인지 먼저 본다.
+ * 이 검사를 건너뛰고 값을 파싱하면 잘못된 요청이 예외로 터지고, 바깥 catch가 그것을
+ * 장애로 답하게 된다. 잘못된 요청은 장애가 아니라 차단이다.
+ */
+function malformed(body) {
+  const { recipientAccountRef, proof, publicSignals, envelope } = body ?? {};
+  if (!isHex(recipientAccountRef)) return "계좌 참조값 형식";
+  if (!proof || typeof proof !== "object") return "증명 형식";
+  if (!Array.isArray(publicSignals) || publicSignals.length !== 6) return "공개 신호 개수";
+  if (!publicSignals.every(isHex)) return "공개 신호 형식";
+  if (!envelope || typeof envelope !== "object") return "봉투 형식";
+  if (!isHex(envelope.requestNonce)) return "nonce 형식";
+  for (const key of ["senderBankId", "verifierId", "recipientBankId", "circuitId"]) {
+    if (!isName(envelope[key])) return `${key} 형식`;
+  }
+  if (!isHex(envelope.verifyingKeyHash)) return "검증키 해시 형식";
+  if (!Number.isInteger(Number(envelope.rootEpoch)) || Number(envelope.rootEpoch) < 1) {
+    return "회차 형식";
+  }
+  return null;
+}
+
 /** 체인 조회 실패를 이 오류로 감싸 UNAVAILABLE과 BLOCK을 섞지 않는다. */
 class ChainUnavailable extends Error {}
 
@@ -91,14 +117,9 @@ async function runChecks(body) {
   const fail = (status) => ({ result: BLOCK(status), steps });
 
   // 1. 요청 형식과 공개 신호 개수
-  const { recipientAccountRef, proof, publicSignals, envelope } = body ?? {};
-  const shapeOk =
-    Boolean(recipientAccountRef) &&
-    Boolean(proof) &&
-    Array.isArray(publicSignals) &&
-    publicSignals.length === 6 &&
-    Boolean(envelope);
-  if (!step("요청 형식과 공개 신호 6개", shapeOk)) return fail("UNKNOWN");
+  const shapeError = malformed(body);
+  if (!step("요청 형식과 공개 신호 6개", !shapeError, shapeError ?? "")) return fail("UNKNOWN");
+  const { recipientAccountRef, proof, publicSignals, envelope } = body;
 
   // 2. nonce 단일 사용
   const nonceError = consumeNonce(envelope.requestNonce);
@@ -124,6 +145,15 @@ async function runChecks(body) {
   const boundToUs =
     envelope.senderBankId === config.senderBankId && envelope.verifierId === config.verifierId;
   if (!step("송금은행·검증자 식별자 일치", boundToUs)) return fail("UNKNOWN");
+
+  // 수취은행도 우리가 아는 곳이어야 한다. 이 확인이 없으면 아무 은행 이름이나 넣어
+  // 그 은행의 Root를 기준으로 검증하게 만들 수 있다. 은행마다 자기 트리를 직접 만들므로,
+  // 다른 은행이 남의 발급기관 이름을 단 leaf를 넣어도 통과한다.
+  // 은행이 여럿이 되면 이 비교를 아는 은행 목록 조회로 바꾼다.
+  const knownRecipient = envelope.recipientBankId === config.recipientBankId;
+  if (!step("수취은행 식별자 일치", knownRecipient, envelope.recipientBankId)) {
+    return fail("UNKNOWN");
+  }
 
   // 6. 실제로 쓸 검증키와 같은 회로인지
   const meta = circuitMeta();

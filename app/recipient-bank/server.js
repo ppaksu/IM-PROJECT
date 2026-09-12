@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { config } from "../config.js";
 import { startServer } from "../lib/http.js";
 import { buildInput, circuitMeta, prove, requestContext } from "../lib/circuit.js";
+import { anchorRoot, bankIdOf, latestEpoch } from "../lib/anchor.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -22,8 +23,16 @@ const registry = JSON.parse(
 // hot revocation 목록. 계획서 2.8에 따라 수취은행 안에 둔다.
 const revoked = new Map(); // accountNumber -> "SUSPENDED" | "REVOKED"
 
-// 데모용 현재 Root 회차. Registry와 앵커링이 붙으면 그쪽이 관리한다.
-let rootEpoch = 1;
+const bankId = bankIdOf(config.recipientBankId);
+
+/**
+ * 현재 회차는 체인이 기준이다. 메모리에 따로 세지 않는다.
+ * 따로 세면 앵커링하지 않은 회차로 증명을 발급하게 되고, 검증자는 그 회차를 모르므로
+ * 멀쩡한 계좌가 차단된다.
+ */
+function currentEpoch() {
+  return latestEpoch(bankId);
+}
 
 function normalize(accountNumber) {
   return String(accountNumber ?? "").replace(/[^0-9]/g, "");
@@ -51,6 +60,9 @@ function eligibility(account) {
 async function makeProof(account, request) {
   const record = registry.records.find((entry) => entry.id === account.id && entry.inTree);
   if (!record) return null;
+
+  const rootEpoch = currentEpoch();
+  if (rootEpoch === 0) return null; // 아직 앵커된 Root가 없다
 
   const context = await requestContext({
     senderBankId: request.senderBankId,
@@ -92,7 +104,14 @@ const routes = {
       return { status: 200, body: { result: "NO_PROOF", status: "NOT_ELIGIBLE" } };
     }
 
-    const issued = await makeProof(account, body);
+    let issued;
+    try {
+      issued = await makeProof(account, body);
+    } catch (error) {
+      // 체인이나 증명기가 죽은 경우다. 적격 아님과 섞으면 안 된다.
+      console.error("[recipient-bank] 증명 발급 실패:", error.message);
+      return { status: 503, body: { result: "NO_PROOF", status: "UNAVAILABLE" } };
+    }
     if (!issued) {
       // 판정은 적격인데 트리에 자리가 없다. 판정과 트리가 어긋난 상태다.
       console.error(`[recipient-bank] 적격인데 record가 없다 account=${account.id}`);
@@ -103,7 +122,7 @@ const routes = {
 
   // 아래는 시연 조작용이다. 실제 은행 간 API에는 없다.
   "GET /admin/accounts": () => ({
-    rootEpoch,
+    rootEpoch: currentEpoch(),
     accounts: accounts.map((account) => {
       const verdict = eligibility(account);
       return {
@@ -135,10 +154,19 @@ const routes = {
     return { ok: true, account: account.id, status: account.status };
   },
 
-  // TODO(백엔드): Registry가 트리를 다시 만들고 Root를 앵커링하도록 바꾼다.
+  // TODO(백엔드): Registry가 트리를 다시 만들어 새 Root를 넘기게 바꾼다.
+  // 지금은 같은 Root를 다음 회차로 다시 앵커링한다. 회차 교체 자체는 실제로 일어난다.
   "POST /admin/rebuild-root": () => {
-    rootEpoch += 1;
-    console.log(`[recipient-bank] Root 회차 증가 rootEpoch=${rootEpoch}`);
+    const rootEpoch = currentEpoch() + 1;
+    anchorRoot({
+      bankId,
+      eligibilityRoot: registry.eligibilityRoot,
+      policyHash: registry.derived.policyHash,
+      rootEpoch,
+      validUntil: Math.floor(Date.now() / 1000) + config.rootPeriodSeconds,
+      meta: circuitMeta(),
+    });
+    console.log(`[recipient-bank] Root 앵커링 rootEpoch=${rootEpoch}`);
     return { rootEpoch };
   },
 };

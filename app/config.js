@@ -4,6 +4,7 @@ export const config = {
   senderBankId: "bank-a",
   verifierId: "bank-a-recipient-verifier",
   recipientBankId: "bank-b",
+  recipientIssuerId: "bank-b-eligibility-issuer",
   circuitId: "eligible-account-v1",
 
   // 데모 값. 계획서 2.4 ~ 2.6
@@ -16,6 +17,12 @@ export const config = {
     senderBank: 8080, // 화면과 중계
     verifier: 8787,
     recipientBank: 8788,
+  },
+
+  anchor: {
+    rpcUrl: "http://127.0.0.1:8545",
+    // 배포 스크립트가 build/anchor.json에 주소를 적는다. 환경변수로도 덮어쓸 수 있다.
+    address: "",
   },
 };
 

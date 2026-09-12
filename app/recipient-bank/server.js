@@ -1,25 +1,28 @@
-// 수취은행 서버 (1일차 스텁)
+// 수취은행 서버.
 //
 // 계좌 record와 hot revocation 목록을 들고, 적격한 계좌에만 증명을 발급한다.
-// 지금은 증명을 fixtures에서 꺼내 쓴다. Registry와 회로가 나오면 이 파일에서
-// makeProof 안쪽만 진짜로 바꾼다. 바깥 계약은 그대로다.
+// 증명은 회로로 실제 생성한다. 트리와 Merkle path는 아직 기준값 파일에서 읽는다.
+// Registry가 붙으면 그 출처만 바뀌고 바깥 계약은 그대로다.
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "../config.js";
 import { startServer } from "../lib/http.js";
+import { buildInput, circuitMeta, prove, requestContext } from "../lib/circuit.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const accounts = JSON.parse(await readFile(join(ROOT, "data", "accounts.json"), "utf8"));
-const sampleProof = JSON.parse(
-  await readFile(join(ROOT, "app", "fixtures", "interbank-proof.response.json"), "utf8"),
+
+// TODO(백엔드): Registry가 붙으면 build/registry.json을 읽는다. 지금은 기준값 파일을 쓴다.
+const registry = JSON.parse(
+  await readFile(join(ROOT, "app", "fixtures", "registry.sample.json"), "utf8"),
 );
 
 // hot revocation 목록. 계획서 2.8에 따라 수취은행 안에 둔다.
 const revoked = new Map(); // accountNumber -> "SUSPENDED" | "REVOKED"
 
-// 데모용 현재 Root 회차. Registry가 붙으면 그쪽이 관리한다.
+// 데모용 현재 Root 회차. Registry와 앵커링이 붙으면 그쪽이 관리한다.
 let rootEpoch = 1;
 
 function normalize(accountNumber) {
@@ -44,20 +47,38 @@ function eligibility(account) {
   return { ok: true, reason: "ELIGIBLE" };
 }
 
-// TODO(백엔드): Registry의 Merkle path를 읽어 회로 입력을 만들고 snarkjs로 증명을 생성한다.
-function makeProof(account) {
+/** Registry의 record로 회로 입력을 만들어 증명을 생성한다. */
+async function makeProof(account, request) {
+  const record = registry.records.find((entry) => entry.id === account.id && entry.inTree);
+  if (!record) return null;
+
+  const context = await requestContext({
+    senderBankId: request.senderBankId,
+    verifierId: request.verifierId,
+    requestNonce: request.requestNonce,
+  });
+  const verificationTime = Math.floor(Date.now() / 1000);
+  const meta = circuitMeta();
+
+  const { proof, publicSignals } = await prove(
+    buildInput({ record, registry, verificationTime, context }),
+  );
+
   return {
     result: "PROOF",
-    recipientAccountRef: sampleProof.recipientAccountRef,
-    proof: sampleProof.proof,
-    publicSignals: sampleProof.publicSignals,
-    envelope: { ...sampleProof.envelope, rootEpoch },
-    stub: { account: account.id },
+    recipientAccountRef: record.recipientAccountRef,
+    proof,
+    publicSignals,
+    envelope: {
+      rootEpoch,
+      circuitId: meta.circuitId,
+      verifyingKeyHash: meta.verifyingKeyHash,
+    },
   };
 }
 
 const routes = {
-  "POST /interbank/v1/recipient/eligibility/proof": (body) => {
+  "POST /interbank/v1/recipient/eligibility/proof": async (body) => {
     if (body.protocolVersion !== config.protocolVersion || !body.requestNonce) {
       return { status: 400, body: { result: "NO_PROOF", status: "NOT_ELIGIBLE" } };
     }
@@ -70,7 +91,14 @@ const routes = {
     if (!verdict.ok) {
       return { status: 200, body: { result: "NO_PROOF", status: "NOT_ELIGIBLE" } };
     }
-    return { status: 200, body: makeProof(account) };
+
+    const issued = await makeProof(account, body);
+    if (!issued) {
+      // 판정은 적격인데 트리에 자리가 없다. 판정과 트리가 어긋난 상태다.
+      console.error(`[recipient-bank] 적격인데 record가 없다 account=${account.id}`);
+      return { status: 503, body: { result: "NO_PROOF", status: "UNAVAILABLE" } };
+    }
+    return { status: 200, body: issued };
   },
 
   // 아래는 시연 조작용이다. 실제 은행 간 API에는 없다.

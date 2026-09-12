@@ -14,3 +14,9 @@ bank-secret*
 
 # macOS
 .DS_Store
+
+# 회로 중간 산출물. 증명과 검증에 필요한 것만 커밋한다.
+build/*.ptau
+build/*_0000.zkey
+build/eligibility.r1cs
+build/anchor.json

@@ -5,11 +5,18 @@
 
 ## 실행
 
+로컬 체인부터 띄운다. Verifier가 Anchor Contract를 읽어야 하고, 못 읽으면 설계대로
+`UNAVAILABLE`로 답한다.
+
 ```bash
-node app/dev.js
+anvil                            # 별도 터미널
+node script/deploy-anchor.js     # 배포와 issuer 등록. 한 번
+node script/anchor-root.js       # 현재 Root 기록. 유효기간 5분
+node app/dev.js                  # 서버 셋
 ```
 
-세 서버가 뜨고 화면은 http://127.0.0.1:8080 이다.
+화면은 http://127.0.0.1:8080 이다. Root 유효기간이 지나면 `EXPIRED`가 되므로
+`node script/anchor-root.js`를 다시 돌린다.
 
 | 서버 | 포트 | 하는 일 |
 |---|---|---|
@@ -17,10 +24,29 @@ node app/dev.js
 | Verifier API | 8787 | nonce 발급, 검증 판정 |
 | 수취은행 | 8788 | 계좌 record, hot revocation, 증명 발급 |
 
-**현재는 1일차 스텁이다.** 흐름은 끝에서 끝까지 돌지만 증명 생성과 검증은 고정값이다.
-`// TODO(보안)`, `// TODO(백엔드)` 주석이 실물로 바뀔 자리를 표시한다.
+증명 생성과 검증은 실물이다. 남은 자리는 `// TODO(백엔드)` 주석이 표시한다. Registry가
+붙으면 트리의 출처가 기준값 파일에서 실제 Registry로 바뀐다.
 
 인터페이스 계약 샘플은 `app/fixtures/`에 있다. 화면과 중계 서버는 이 파일을 기준으로 만든다.
+
+## 회로
+
+```bash
+node script/setup-circuit.js   # 컴파일과 키 생성. 한 번만
+node script/test-circuit.js    # 정상 증명 하나와 불일치 13종
+```
+
+제약 4271개, 공개 신호 6개, 증명 생성 약 0.3초다.
+
+**`build/`의 산출물은 다시 만들지 마라.** 각자 셋업을 돌리면 검증키가 달라져서, 한 사람이
+만든 증명을 다른 사람이 검증할 때 실패한다. 원인이 잘 안 보이는 종류의 실패다. 한 사람이
+한 번 만들어 커밋한 것을 그대로 쓴다.
+
+`.ptau`와 `.r1cs`는 셋업에만 쓰이므로 커밋하지 않는다. 증명과 검증에 필요한 것은 `zkey`,
+`vkey`, `wasm`, `circuit-meta.json`이다.
+
+현재 ceremony는 이 기계 혼자 돌린 개발용이다. 제출 전에 기존 Powers of Tau 결과를 받아
+phase 2만 기여하는 쪽으로 바꾼다.
 
 ## Registry 기준값
 

@@ -78,7 +78,8 @@ async function checkTransfer(body) {
   });
 
   return {
-    status: 200,
+    // 장애는 상태 코드로도 구분한다. 계획서 4.3
+    status: verifyResponse.body.decision === "NO_SAFETY_ASSERTION" ? 503 : 200,
     body: {
       status: verifyResponse.body.status,
       decision: verifyResponse.body.decision,

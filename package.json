@@ -9,9 +9,13 @@
     "recipient-bank": "node app/recipient-bank/server.js",
     "verifier": "node app/verifier/server.js",
     "sender-bank": "node app/sender-bank/server.js",
-    "fixture": "node script/make-registry-fixture.js"
+    "fixture": "node script/make-registry-fixture.js",
+    "circuit:setup": "node script/setup-circuit.js",
+    "circuit:test": "node script/test-circuit.js"
   },
   "dependencies": {
-    "circomlibjs": "^0.1.7"
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "snarkjs": "^0.7.6"
   }
 }

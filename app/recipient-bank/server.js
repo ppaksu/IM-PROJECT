@@ -53,6 +53,7 @@ function eligibility(account) {
   if (hot) return { ok: false, reason: hot };
   if (account.status !== "ELIGIBLE") return { ok: false, reason: account.status };
   if (!account.kycComplete) return { ok: false, reason: "KYC_INCOMPLETE" };
+  if (account.openedDaysAgo < config.minAccountAgeDays) return { ok: false, reason: "NEW_ACCOUNT" };
   return { ok: true, reason: "ELIGIBLE" };
 }
 

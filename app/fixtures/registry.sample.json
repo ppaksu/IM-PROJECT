@@ -4,14 +4,15 @@
   "params": {
     "protocolId": "IM-RECIPIENT-ELIGIBILITY/1",
     "recipientBankId": "bank-b",
-    "policy": "recipient-eligibility-v1",
+    "policy": "recipient-eligibility-v2",
     "issuer": "bank-b-eligibility-issuer",
     "bankSecret": "demo-bank-secret-do-not-use-in-production",
     "validUntil": 1791590400,
-    "rootEpoch": 1
+    "rootEpoch": 1,
+    "minAccountAgeDays": 30
   },
   "derived": {
-    "policyHash": "0x0027a0c87f9118bedd97d5f965ef17604f53e4294a7c9c61592386fa7420a6b6",
+    "policyHash": "0x001e0ee961192726af6d3fa2a55a3f5a1fddbe8a4a5b8265cf29a1b9a4245f25",
     "issuerId": "0x00f2800cfd51aaedb98e0a2fb88c8e3da3441076bb6d454b8e68b8d11c669e8d",
     "zeroLeaf": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "zeroSubtreeHashes": [
@@ -35,7 +36,7 @@
     ]
   },
   "rootEpoch": 1,
-  "eligibilityRoot": "0x070224a57e78cca2659c050b62f55e960b7f1017333acadf7b5c4059242f4e57",
+  "eligibilityRoot": "0x095ef5b8eb064891cd95dd70b5d86310750be8ad4d521fc79e1a7d3c1ba63d38",
   "records": [
     {
       "id": "A",
@@ -44,10 +45,10 @@
       "inTree": true,
       "eligibilityStatus": 1,
       "validUntil": 1791590400,
-      "leaf": "0x289d774237e4ab326bf28454058e9acca7dbba4cb9becc332f7b91204700d89c",
+      "leaf": "0x08a85d17d3286848a5e5804bd7150b8ab5b20e41196ddfcdc621ba4c575f39b9",
       "pathElements": [
-        "0x1bf0f76a9555fa3146f909dcc82584cb7126b72f76cea480305b409815d18a5b",
-        "0x2a38ad983fccde48e79f646c4dc33896469b96dbc582b340e152b7f2ca4725d9",
+        "0x080b719023029941b2d0d4af3b660a4bf552c85f7eac03ac8024c13260223d84",
+        "0x0c8c902f6944f335237d01347ace3aa8d0b8bc2f442237b97c64578baa50424e",
         "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
         "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
         "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
@@ -89,10 +90,10 @@
       "inTree": true,
       "eligibilityStatus": 1,
       "validUntil": 1791590400,
-      "leaf": "0x1bf0f76a9555fa3146f909dcc82584cb7126b72f76cea480305b409815d18a5b",
+      "leaf": "0x080b719023029941b2d0d4af3b660a4bf552c85f7eac03ac8024c13260223d84",
       "pathElements": [
-        "0x289d774237e4ab326bf28454058e9acca7dbba4cb9becc332f7b91204700d89c",
-        "0x2a38ad983fccde48e79f646c4dc33896469b96dbc582b340e152b7f2ca4725d9",
+        "0x08a85d17d3286848a5e5804bd7150b8ab5b20e41196ddfcdc621ba4c575f39b9",
+        "0x0c8c902f6944f335237d01347ace3aa8d0b8bc2f442237b97c64578baa50424e",
         "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
         "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
         "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
@@ -134,10 +135,10 @@
       "inTree": true,
       "eligibilityStatus": 1,
       "validUntil": 1791590400,
-      "leaf": "0x1847eb8a33aeb15df190bb84cf33127e6bdfc8fdfd25800a6c393706cd01c6de",
+      "leaf": "0x25506079d08b7a7eea967bb7da17607a2eafbda15c4729bed353f1cfac16a584",
       "pathElements": [
         "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "0x1e2e5afe992923d3dbe66dfdcfc062e202390c938389ae6810a3ac2ede4540d5",
+        "0x0dab375a0be2c4c0ef066d0a7ab69315ec787d013f25343664967d2fd3850f39",
         "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
         "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
         "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
@@ -187,6 +188,14 @@
       "inTree": false,
       "leaf": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "excludedBecause": "KYC_INCOMPLETE"
+    },
+    {
+      "id": "F",
+      "index": 5,
+      "recipientAccountRef": "0x002eb414d14351bec98fb8e69b88be626ea48ea81486d1154bb834de381cb022",
+      "inTree": false,
+      "leaf": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "excludedBecause": "NEW_ACCOUNT"
     }
   ]
 }

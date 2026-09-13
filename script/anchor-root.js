@@ -12,7 +12,11 @@ import { config } from "../app/config.js";
 import { sha256Bytes32 } from "../app/lib/anchor.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const anchorInfo = JSON.parse(readFileSync(join(ROOT, "build", "anchor.json"), "utf8"));
+// 기본은 로컬이다. 공개망에 올릴 때는 ANCHOR_INFO로 배포 결과 파일을 지정한다.
+//   ANCHOR_INFO=build/anchor.sepolia.example.json node script/anchor-root.js
+const anchorInfo = JSON.parse(
+  readFileSync(join(ROOT, process.env.ANCHOR_INFO ?? "build/anchor.json"), "utf8"),
+);
 const registry = JSON.parse(readFileSync(join(ROOT, "app", "fixtures", "registry.sample.json"), "utf8"));
 const meta = JSON.parse(readFileSync(join(ROOT, "build", "circuit-meta.json"), "utf8"));
 

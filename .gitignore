@@ -20,3 +20,4 @@ build/*.ptau
 build/*_0000.zkey
 build/eligibility.r1cs
 build/anchor.json
+build/anchor.*.json

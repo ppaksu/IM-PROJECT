@@ -5,7 +5,8 @@
     "holderAlias": "김대구",
     "status": "ELIGIBLE",
     "kycComplete": true,
-    "note": "정상 계좌. D1 시나리오 대상"
+    "note": "정상 계좌. D1 시나리오 대상",
+    "openedDaysAgo": 420
   },
   {
     "id": "B",
@@ -13,7 +14,8 @@
     "holderAlias": "이수성",
     "status": "ELIGIBLE",
     "kycComplete": true,
-    "note": "정상 계좌. 두 epoch 모두 적격 유지"
+    "note": "정상 계좌. 두 epoch 모두 적격 유지",
+    "openedDaysAgo": 900
   },
   {
     "id": "C",
@@ -21,7 +23,8 @@
     "holderAlias": "박달서",
     "status": "ELIGIBLE",
     "kycComplete": true,
-    "note": "D2 시나리오에서 대포통장으로 판정할 계좌"
+    "note": "D2 시나리오에서 대포통장으로 판정할 계좌",
+    "openedDaysAgo": 210
   },
   {
     "id": "D",
@@ -29,7 +32,8 @@
     "holderAlias": "최북구",
     "status": "SUSPENDED",
     "kycComplete": true,
-    "note": "이미 정지된 계좌. 트리에 들어가지 않는다"
+    "note": "이미 정지된 계좌. 트리에 들어가지 않는다",
+    "openedDaysAgo": 365
   },
   {
     "id": "E",
@@ -37,6 +41,16 @@
     "holderAlias": "정동구",
     "status": "ELIGIBLE",
     "kycComplete": false,
-    "note": "고객확인 미완료. 상태값과 무관하게 적격이 아니다"
+    "note": "고객확인 미완료. 상태값과 무관하게 적격이 아니다",
+    "openedDaysAgo": 120
+  },
+  {
+    "id": "F",
+    "accountNumber": "110-234-555555",
+    "holderAlias": "한중구",
+    "status": "ELIGIBLE",
+    "kycComplete": true,
+    "openedDaysAgo": 3,
+    "note": "개설 직후 계좌. 대포통장 상당수가 신규 개설 계좌라 일정 기간 적격에서 제외한다"
   }
 ]

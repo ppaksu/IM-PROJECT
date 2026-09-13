@@ -7,6 +7,9 @@ export const config = {
   recipientIssuerId: "bank-b-eligibility-issuer",
   circuitId: "eligible-account-v1",
 
+  // 개설 후 이 기간이 지나야 적격 목록에 들어간다. 대포통장 상당수가 신규 개설 계좌다.
+  minAccountAgeDays: 30,
+
   // 데모 값. 계획서 2.4 ~ 2.6
   nonceTtlSeconds: 120,
   clockSkewSeconds: 120,

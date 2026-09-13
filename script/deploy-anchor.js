@@ -1,9 +1,14 @@
-// 로컬 체인에 Anchor Contract를 올리고, 수취은행 issuer를 등록한다.
+// Anchor Contract를 올리고 수취은행 issuer를 등록한다.
 //
-// 실행 전에 다른 터미널에서 anvil을 띄워 둔다.
-//   anvil
+// 로컬:
+//   anvil                        (다른 터미널)
+//   node script/deploy-anchor.js
 //
-// anvil이 찍어 주는 첫 번째 계정을 owner 겸 issuer로 쓴다. 로컬 전용 키다.
+// Sepolia:
+//   ANCHOR_RPC_URL=https://... ANCHOR_ISSUER_KEY=0x... node script/deploy-anchor.js
+//
+// 로컬 배포 결과는 build/anchor.json, 그 밖의 망은 build/anchor.<host>.json에 적는다.
+// 서버는 build/anchor.json만 읽으므로 공개망에 올려도 로컬 시연이 깨지지 않는다.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -50,11 +55,14 @@ run("cast", [
   DEV_KEY,
 ]);
 
+const local = /^https?:\/\/(127\.0\.0\.1|localhost)\b/.test(RPC);
+const fileName = local ? "anchor.json" : `anchor.${new URL(RPC).hostname}.json`;
+
 mkdirSync(join(ROOT, "build"), { recursive: true });
 writeFileSync(
-  join(ROOT, "build", "anchor.json"),
+  join(ROOT, "build", fileName),
   JSON.stringify({ address, rpcUrl: RPC, bankId, issuer, bankName: config.recipientBankId }, null, 2) + "\n",
 );
 
-console.log(`Anchor Contract ${address}`);
+console.log(`Anchor Contract ${address}  (build/${fileName})`);
 console.log(`issuer ${issuer} (${config.recipientBankId} → ${bankId})`);

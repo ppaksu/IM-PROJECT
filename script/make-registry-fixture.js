@@ -18,13 +18,14 @@ const TREE_DEPTH = 16;
 const params = {
   protocolId: "IM-RECIPIENT-ELIGIBILITY/1",
   recipientBankId: "bank-b",
-  policy: "recipient-eligibility-v1",
+  policy: "recipient-eligibility-v2",
   issuer: "bank-b-eligibility-issuer",
   // 데모 전용 고정 키다. 운영에서는 HSM이나 KMS에 두고 절대 문서에 적지 않는다.
   bankSecret: "demo-bank-secret-do-not-use-in-production",
   // 재현 가능해야 하므로 record 기한을 고정값으로 둔다. 계획서 2.5의 재확인 기한이다.
   validUntil: 1791590400,
   rootEpoch: 1,
+  minAccountAgeDays: 30,
 };
 
 /** 빈 서브트리 해시. 빈 자리의 leaf 값은 0이다. */
@@ -111,7 +112,10 @@ for (const [index, account] of accounts.entries()) {
     bankId: params.recipientBankId,
     accountNumber: account.accountNumber,
   });
-  const eligible = account.status === "ELIGIBLE" && account.kycComplete;
+  const eligible =
+    account.status === "ELIGIBLE" &&
+    account.kycComplete &&
+    account.openedDaysAgo >= params.minAccountAgeDays;
 
   if (!eligible) {
     records.push({
@@ -120,7 +124,12 @@ for (const [index, account] of accounts.entries()) {
       recipientAccountRef: toHex(ref),
       inTree: false,
       leaf: toHex(0),
-      excludedBecause: account.kycComplete ? account.status : "KYC_INCOMPLETE",
+      excludedBecause:
+        account.status !== "ELIGIBLE"
+          ? account.status
+          : !account.kycComplete
+            ? "KYC_INCOMPLETE"
+            : "NEW_ACCOUNT",
     });
     continue;
   }

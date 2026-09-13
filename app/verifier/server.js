@@ -2,18 +2,18 @@
 //
 // 검증 순서는 IM_PROJECT_PLAN.md 4.4를 따른다. 싼 검사를 앞에 두고 증명 검증을 마지막에 한다.
 // 검증 실패와 서비스 장애를 구분한다. 체인을 못 읽은 것을 허용으로도 차단으로도 바꾸지 않는다.
-import { randomBytes } from "node:crypto";
 import { config } from "../config.js";
 import { startServer } from "../lib/http.js";
 import { hashToField, toHex } from "../lib/field.js";
 import { circuitMeta, namedSignals, requestContext, verify as verifyProof } from "../lib/circuit.js";
 import { anchorOf, bankIdOf, latestAnchor, sha256Bytes32 } from "../lib/anchor.js";
+import { createNonceStore } from "../lib/nonce.js";
 
 const ALLOW = (rootEpoch) => ({ status: "ELIGIBLE", decision: "ALLOW", rootEpoch });
 const BLOCK = (status) => ({ status, decision: "BLOCK" });
 const UNAVAILABLE = () => ({ status: "UNAVAILABLE", decision: "NO_SAFETY_ASSERTION" });
 
-const issuedNonces = new Map(); // nonce -> { issuedAt, used }
+const nonces = createNonceStore({ ttlSeconds: config.nonceTtlSeconds });
 const bankIdCache = new Map();
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -50,22 +50,6 @@ class ChainUnavailable extends Error {}
 function bankId(name) {
   if (!bankIdCache.has(name)) bankIdCache.set(name, bankIdOf(name));
   return bankIdCache.get(name);
-}
-
-function issueNonce() {
-  // 상위 31바이트만 쓰는 계획서 2.1 규칙에 맞춘다.
-  const requestNonce = "0x00" + randomBytes(31).toString("hex");
-  issuedNonces.set(requestNonce, { issuedAt: now(), used: false });
-  return { requestNonce, expiresAt: now() + config.nonceTtlSeconds };
-}
-
-function consumeNonce(requestNonce) {
-  const entry = issuedNonces.get(requestNonce);
-  if (!entry) return "발급한 적 없는 nonce";
-  if (entry.used) return "이미 사용한 nonce";
-  if (now() - entry.issuedAt > config.nonceTtlSeconds) return "만료된 nonce";
-  entry.used = true;
-  return null;
 }
 
 /**
@@ -122,7 +106,7 @@ async function runChecks(body) {
   const { recipientAccountRef, proof, publicSignals, envelope } = body;
 
   // 2. nonce 단일 사용
-  const nonceError = consumeNonce(envelope.requestNonce);
+  const nonceError = nonces.consume(envelope.requestNonce);
   if (!step("요청 nonce 단일 사용", !nonceError, nonceError ?? "")) return fail("UNKNOWN");
 
   // 3. 요청 바인딩 재계산
@@ -197,7 +181,15 @@ async function runChecks(body) {
 }
 
 const routes = {
-  "POST /api/v1/recipient/eligibility/nonce": () => issueNonce(),
+  "POST /api/v1/recipient/eligibility/nonce": () => {
+    const issued = nonces.issue();
+    if (!issued) {
+      // 보관소가 가득 찼다. 아직 쓰지 않은 nonce를 밀어내지 않고 발급을 멈춘다.
+      console.error("[verifier] nonce 보관소 상한 도달");
+      return { status: 503, body: { error: "nonce를 발급할 수 없다" } };
+    }
+    return issued;
+  },
 
   "POST /api/v1/recipient/eligibility/verify": async (body) => {
     try {

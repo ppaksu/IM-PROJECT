@@ -181,7 +181,7 @@ $("send").addEventListener("click", async () => {
       `${label[result.decision] ?? result.decision}<small>${result.status}` +
       `${result.rootEpoch ? ` · Root epoch ${result.rootEpoch}` : ""}</small>`;
     $("timeline").innerHTML = (result.timeline ?? []).map((step) => `
-      <div>${step.name}<div class="detail">${step.detail ?? ""}</div></div>`).join("");
+      <li>${step.name}<div class="detail">${step.detail ?? ""}</div></li>`).join("");
   } finally {
     button.disabled = false;
     refresh();

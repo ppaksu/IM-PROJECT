@@ -22,7 +22,7 @@
     background: var(--bg); color: var(--text);
   }
   h1 { font-size: 20px; margin: 0 0 4px; }
-  h2 { font-size: 15px; margin: 0 0 12px; }
+  h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; }
   .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
   .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 860px) { .columns { grid-template-columns: 1fr; } }
@@ -52,6 +52,7 @@
   .timeline li { padding: 5px 0; border-bottom: 1px dashed var(--line); }
   .timeline .detail { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
   .tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .role-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: #eef2f6; color: #374151; }
   .hidden { display: none; }
   .stub { margin-top: 18px; font-size: 12px; color: var(--muted); }
 </style>
@@ -62,7 +63,10 @@
 
   <div class="columns">
     <section class="panel">
-      <h2>송금은행 화면</h2>
+      <h2>
+        <span>송금은행 화면</span>
+        <span class="role-badge">Sender Bank (Port 8080/8787)</span>
+      </h2>
       <label for="account">수취계좌번호</label>
       <input id="account" value="110-234-567890" autocomplete="off" />
       <div class="row mt">
@@ -77,7 +81,10 @@
     </section>
 
     <section class="panel">
-      <h2>수취은행 관리</h2>
+      <h2>
+        <span>수취은행 관리</span>
+        <span class="role-badge">Recipient Bank (Port 8788)</span>
+      </h2>
       <table>
         <thead>
           <tr><th>계좌</th><th>예금주</th><th>상태</th><th></th></tr>
@@ -92,7 +99,10 @@
   </div>
 
   <section class="panel mt">
-    <h2>감사 로그</h2>
+    <h2>
+      <span>감사 및 검증 로그</span>
+      <span class="role-badge">System Audit Trail</span>
+    </h2>
     <table>
       <thead><tr><th>시각</th><th>계좌</th><th>상태</th><th>결정</th><th>epoch</th></tr></thead>
       <tbody id="audit"></tbody>
@@ -124,8 +134,6 @@ async function refresh() {
 
   $("epoch").textContent = `Root epoch ${state.rootEpoch}`;
   $("accounts").innerHTML = state.accounts.map((account) => {
-    // 폐기와 복구는 hot revocation 목록에만 작용한다.
-    // 고객확인 미완료처럼 record 자체가 부적격인 계좌는 버튼을 막는다.
     const action = account.eligible ? "revoke" : account.hot ? "restore" : null;
     const button = action
       ? `<button data-account="${account.accountNumber}" data-action="${action}">
@@ -174,7 +182,7 @@ $("send").addEventListener("click", async () => {
       `${label[result.decision] ?? result.decision}<small>${result.status}` +
       `${result.rootEpoch ? ` · Root epoch ${result.rootEpoch}` : ""}</small>`;
     $("timeline").innerHTML = (result.timeline ?? []).map((step) => `
-      <li>${step.name}<div class="detail">${step.detail ?? ""}</div></li>`).join("");
+      <div>${step.name}<div class="detail">${step.detail ?? ""}</div></div>`).join("");
   } finally {
     button.disabled = false;
     refresh();

@@ -1,7 +1,7 @@
 // 현재 Root를 체인에 기록한다.
 //
-// 지금은 기준값 파일의 Root를 올린다. Registry가 붙으면 build/registry.json을 읽도록
-// 바꾼다. TODO(백엔드)
+// Registry가 계좌 목록에서 만든 Root를 올린다. 수취은행 서버도 같은 입력으로 같은 트리를
+// 만들므로, 서버를 켜기 전에 이걸 한 번 돌리면 체인과 서버의 Root가 맞는다.
 //
 // 실행: node script/anchor-root.js
 import { execFileSync } from "node:child_process";
@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "../app/config.js";
 import { sha256Bytes32 } from "../app/lib/anchor.js";
+import { buildRegistry } from "../app/lib/registry.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // 기본은 로컬이다. 공개망에 올릴 때는 ANCHOR_INFO로 배포 결과 파일을 지정한다.
@@ -17,7 +18,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const anchorInfo = JSON.parse(
   readFileSync(join(ROOT, process.env.ANCHOR_INFO ?? "build/anchor.json"), "utf8"),
 );
-const registry = JSON.parse(readFileSync(join(ROOT, "app", "fixtures", "registry.sample.json"), "utf8"));
+const accounts = JSON.parse(readFileSync(join(ROOT, "data", "accounts.json"), "utf8"));
+const registry = await buildRegistry({ accounts });
 const meta = JSON.parse(readFileSync(join(ROOT, "build", "circuit-meta.json"), "utf8"));
 
 const DEV_KEY =
@@ -54,4 +56,4 @@ run("cast", [
 
 console.log(`rootEpoch ${rootEpoch} 기록`);
 console.log(`root ${registry.eligibilityRoot}`);
-console.log(`유효기간 ${config.rootPeriodSeconds}초`);
+console.log(`유효기간 ${config.rootPeriodSeconds}초, 트리 안 ${registry.inTreeCount}개`);

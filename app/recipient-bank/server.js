@@ -1,8 +1,7 @@
 // 수취은행 서버.
 //
 // 계좌 record와 hot revocation 목록을 들고, 적격한 계좌에만 증명을 발급한다.
-// 증명은 회로로 실제 생성한다. 트리와 Merkle path는 아직 기준값 파일에서 읽는다.
-// Registry가 붙으면 그 출처만 바뀌고 바깥 계약은 그대로다.
+// 증명은 회로로 실제 생성한다. 트리와 Merkle path는 Registry가 계좌 목록에서 만든다.
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,18 +9,19 @@ import { config } from "../config.js";
 import { startServer } from "../lib/http.js";
 import { buildInput, circuitMeta, prove, requestContext } from "../lib/circuit.js";
 import { anchorRoot, bankIdOf, latestEpoch } from "../lib/anchor.js";
+import { buildRegistry, eligibilityOf } from "../lib/registry.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const accounts = JSON.parse(await readFile(join(ROOT, "data", "accounts.json"), "utf8"));
 
-// TODO(백엔드): Registry가 붙으면 build/registry.json을 읽는다. 지금은 기준값 파일을 쓴다.
-const registry = JSON.parse(
-  await readFile(join(ROOT, "app", "fixtures", "registry.sample.json"), "utf8"),
-);
-
 // hot revocation 목록. 계획서 2.8에 따라 수취은행 안에 둔다.
+// 트리에는 바로 반영하지 않는다. 즉시 차단은 이 목록이 하고, 트리는 다음 회차에 따라온다.
 const revoked = new Map(); // accountNumber -> "SUSPENDED" | "REVOKED"
+
+// 현재 앵커된 Root에 대응하는 트리다. 앵커링할 때만 다시 만든다.
+// 앵커링 없이 다시 만들면 체인이 모르는 Root로 증명을 내게 되고, 검증자가 전부 거절한다.
+let registry = await buildRegistry({ accounts, revoked });
 
 const bankId = bankIdOf(config.recipientBankId);
 
@@ -44,22 +44,27 @@ function findAccount(accountNumber) {
 }
 
 /**
- * 증명 발급 가능 여부. 사유는 은행 안에서만 쓰고 밖으로 내보내지 않는다.
- * 계획서 2.7에 따라 응답은 NOT_ELIGIBLE 하나로 합친다.
+ * 증명 발급 가능 여부. 판정 규칙 자체는 Registry와 같은 것을 쓴다.
+ * 규칙이 두 벌이면 판정과 트리가 어긋난다.
+ *
+ * 판정을 통과해도 현재 회차 트리에 자리가 없으면 증명을 만들 수 없다. 폐기 뒤 복구한
+ * 계좌가 그렇다. 다음 회차 Root가 올라가야 다시 들어온다.
+ * 사유는 은행 안에서만 쓰고, 응답은 계획서 2.7에 따라 NOT_ELIGIBLE 하나로 합친다.
  */
 function eligibility(account) {
-  if (!account) return { ok: false, reason: "UNKNOWN_ACCOUNT" };
-  const hot = revoked.get(account.accountNumber);
-  if (hot) return { ok: false, reason: hot };
-  if (account.status !== "ELIGIBLE") return { ok: false, reason: account.status };
-  if (!account.kycComplete) return { ok: false, reason: "KYC_INCOMPLETE" };
-  if (account.openedDaysAgo < config.minAccountAgeDays) return { ok: false, reason: "NEW_ACCOUNT" };
-  return { ok: true, reason: "ELIGIBLE" };
+  const verdict = eligibilityOf(account, { revoked, minAccountAgeDays: config.minAccountAgeDays });
+  if (!verdict.ok) return verdict;
+  if (!recordOf(account)) return { ok: false, reason: "NOT_IN_CURRENT_TREE" };
+  return verdict;
+}
+
+function recordOf(account) {
+  return registry.records.find((entry) => entry.id === account.id && entry.inTree) ?? null;
 }
 
 /** Registry의 record로 회로 입력을 만들어 증명을 생성한다. */
 async function makeProof(account, request) {
-  const record = registry.records.find((entry) => entry.id === account.id && entry.inTree);
+  const record = recordOf(account);
   if (!record) return null;
 
   const rootEpoch = currentEpoch();
@@ -155,20 +160,24 @@ const routes = {
     return { ok: true, account: account.id, status: account.status };
   },
 
-  // TODO(백엔드): Registry가 트리를 다시 만들어 새 Root를 넘기게 바꾼다.
-  // 지금은 같은 Root를 다음 회차로 다시 앵커링한다. 회차 교체 자체는 실제로 일어난다.
-  "POST /admin/rebuild-root": () => {
+  // Registry가 트리를 다시 만들고 새 Root를 다음 회차로 앵커링한다.
+  // 이때 폐기된 계좌가 트리에서 빠진다. 앵커링에 성공한 뒤에만 메모리를 교체한다.
+  "POST /admin/rebuild-root": async () => {
+    const rebuilt = await buildRegistry({ accounts, revoked });
     const rootEpoch = currentEpoch() + 1;
     anchorRoot({
       bankId,
-      eligibilityRoot: registry.eligibilityRoot,
-      policyHash: registry.derived.policyHash,
+      eligibilityRoot: rebuilt.eligibilityRoot,
+      policyHash: rebuilt.derived.policyHash,
       rootEpoch,
       validUntil: Math.floor(Date.now() / 1000) + config.rootPeriodSeconds,
       meta: circuitMeta(),
     });
-    console.log(`[recipient-bank] Root 앵커링 rootEpoch=${rootEpoch}`);
-    return { rootEpoch };
+    registry = rebuilt;
+    console.log(
+      `[recipient-bank] Root 앵커링 rootEpoch=${rootEpoch} root=${rebuilt.eligibilityRoot} 트리 안 ${rebuilt.inTreeCount}개`,
+    );
+    return { rootEpoch, eligibilityRoot: rebuilt.eligibilityRoot, inTree: rebuilt.inTreeCount };
   },
 };
 

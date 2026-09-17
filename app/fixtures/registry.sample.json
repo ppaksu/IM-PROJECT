@@ -1,5 +1,6 @@
 {
   "note": "Registry 구현이 같은 Root를 내는지 대조하는 기준값이다. 손으로 고치지 말고 이 스크립트로 다시 만든다.",
+  "rootEpoch": 1,
   "treeDepth": 16,
   "params": {
     "protocolId": "IM-RECIPIENT-ELIGIBILITY/1",
@@ -8,7 +9,6 @@
     "issuer": "bank-b-eligibility-issuer",
     "bankSecret": "demo-bank-secret-do-not-use-in-production",
     "validUntil": 1791590400,
-    "rootEpoch": 1,
     "minAccountAgeDays": 30
   },
   "derived": {
@@ -35,7 +35,6 @@
       "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323"
     ]
   },
-  "rootEpoch": 1,
   "eligibilityRoot": "0x095ef5b8eb064891cd95dd70b5d86310750be8ad4d521fc79e1a7d3c1ba63d38",
   "records": [
     {

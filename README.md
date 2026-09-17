@@ -33,14 +33,22 @@ node script/test-circuit.js    # 정상 증명 하나와 불일치 13종
 `build/`의 산출물은 다시 만들지 않는다. 각자 셋업을 돌리면 검증키가 달라져서 서로의 증명을
 검증하지 못한다. `.ptau`와 `.r1cs`는 셋업에만 쓰이므로 커밋하지 않는다.
 
-## Registry 기준값
+## Registry
+
+`app/lib/registry.js`가 `data/accounts.json`에서 적격 트리를 만든다. 적격 판정과 트리 구성이
+같은 파일에 있어서 "판정은 적격인데 트리에 자리가 없다" 같은 어긋남이 생기지 않는다.
+수취은행 서버와 앵커링 스크립트가 같은 함수를 쓴다.
+
+폐기는 두 단계로 반영된다. hot revocation 목록이 증명 발급을 즉시 막고, 트리에서 빠지는 것은
+다음 회차 Root부터다.
 
 ```bash
 node script/make-registry-fixture.js
 ```
 
-`app/fixtures/registry.sample.json`은 테스트 벡터다. 같은 계좌 데이터로 Registry를 구현하면
-여기 적힌 `eligibilityRoot`가 그대로 나와야 한다. 손으로 고치지 말고 스크립트로 다시 만든다.
+`app/fixtures/registry.sample.json`은 테스트 벡터다. 다른 언어나 다른 구현으로 Registry를
+다시 만들어도 여기 적힌 `eligibilityRoot`가 그대로 나와야 한다. 손으로 고치지 말고 스크립트로
+다시 만든다.
 
 값 변환은 `app/lib/field.js` 한 곳에서만 한다.
 

@@ -36,17 +36,43 @@ export function sha256Hex(input) {
   return "0x" + createHash("sha256").update(input).digest("hex");
 }
 
+/** 계좌번호 표기는 은행마다 다르다. 숫자만 남긴다. */
+export function normalizeAccountNumber(accountNumber) {
+  const normalized = String(accountNumber ?? "").replace(/[^0-9]/g, "");
+  if (normalized.length === 0) throw new Error("계좌번호에 숫자가 없다");
+  return normalized;
+}
+
+/**
+ * 계좌번호의 공개 표현. 회로의 공개 신호이고, 검증자가 자기가 물어본 계좌로 같은 값을
+ * 계산해 대조한다. 계획서 2.1
+ *
+ * 숫자를 그대로 필드 원소로 쓰지 않는 이유는 앞자리 0이 사라져 서로 다른 계좌가 같은
+ * 값이 되기 때문이다.
+ */
+export function accountHash(accountNumber) {
+  return hashToField(normalizeAccountNumber(accountNumber));
+}
+
+/**
+ * 참조값 유도 키. 은행과 프로토콜마다 하나다. 회로의 비공개 입력이다.
+ * 계좌번호별로 나누지 않는 이유는 회로 안에서 계좌 해시와 다시 묶기 때문이다.
+ */
+export function refKeyOf({ bankSecret, protocolId, bankId }) {
+  return truncate31(
+    createHmac("sha256", bankSecret).update([protocolId, bankId].join("|")).digest(),
+  );
+}
+
 /**
  * 계좌번호를 은행 비밀키와 결합한 외부 참조값. 계획서 2.1
  * 계좌번호를 그냥 해시하면 가능한 값을 전부 대입해 원래 값을 알아낼 수 있다.
+ *
+ * 회로가 같은 식을 다시 계산한다. 그래서 어떤 계좌의 record로 만든 증명을 다른 계좌의
+ * 답으로 내밀 수 없다. 그러려면 Poseidon의 역상을 찾아야 한다.
  */
-export function recipientAccountRef({ bankSecret, protocolId, bankId, accountNumber }) {
-  const normalized = String(accountNumber).replace(/[^0-9]/g, "");
-  if (normalized.length === 0) throw new Error("계좌번호에 숫자가 없다");
-  const mac = createHmac("sha256", bankSecret)
-    .update([protocolId, bankId, normalized].join("|"))
-    .digest();
-  return truncate31(mac);
+export async function recipientAccountRef({ refKey, accountNumber }) {
+  return poseidon([refKey, accountHash(accountNumber)]);
 }
 
 let poseidonInstance = null;

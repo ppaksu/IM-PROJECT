@@ -9,10 +9,11 @@
 // 실행: node script/test-e2e.js
 import { execFileSync } from "node:child_process";
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config, url } from "../app/config.js";
+import { accountHash, toHex } from "../app/lib/field.js";
 import { buildRegistry } from "../app/lib/registry.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -115,7 +116,7 @@ async function freshRequest(accountId) {
   });
   if (issued.body.result !== "PROOF") throw new Error(`증명을 못 받았다: ${JSON.stringify(issued.body)}`);
   return {
-    recipientAccountRef: issued.body.recipientAccountRef,
+    accountHash: toHex(accountHash(num(accountId))),
     proof: issued.body.proof,
     publicSignals: issued.body.publicSignals,
     envelope: {
@@ -203,7 +204,7 @@ console.log("\n[정상 흐름]");
   }
   const first = await transfer(num("A"));
   check("허용 응답에 회차가 실린다", Number(first.body.rootEpoch) >= 1, String(first.body.rootEpoch));
-  check("계좌 참조값을 돌려준다", /^0x[0-9a-f]{64}$/.test(first.body.recipientAccountRef ?? ""));
+  check("물어본 계좌의 해시를 돌려준다", first.body.accountHash === toHex(accountHash(num("A"))), first.body.accountHash);
 }
 
 console.log("\n[적격 아님]");
@@ -218,6 +219,38 @@ console.log("\n[적격 아님]");
 
   const empty = await post(`${SENDER}/api/v1/transfer/check`, {});
   check("계좌번호 없는 요청은 400", empty.status === 400, String(empty.status));
+}
+
+console.log("\n[수취은행 요청 검사]");
+{
+  const wrongBank = await post(`${url.recipientBank}/interbank/v1/recipient/eligibility/proof`, {
+    protocolVersion: config.protocolVersion,
+    senderBankId: config.senderBankId,
+    verifierId: config.verifierId,
+    requestNonce: await nonce(),
+    recipientBankId: "bank-z",
+    accountNumber: num("A"),
+  });
+  check("다른 은행 앞으로 온 요청은 거절", wrongBank.status === 400, String(wrongBank.status));
+
+  const oldVersion = await post(`${url.recipientBank}/interbank/v1/recipient/eligibility/proof`, {
+    protocolVersion: "99",
+    senderBankId: config.senderBankId,
+    verifierId: config.verifierId,
+    requestNonce: await nonce(),
+    recipientBankId: config.recipientBankId,
+    accountNumber: num("A"),
+  });
+  check("모르는 프로토콜 버전은 거절", oldVersion.status === 400, String(oldVersion.status));
+}
+
+console.log("\n[표기 차이]");
+{
+  const upper = await mutated("A", (r) => { r.accountHash = r.accountHash.toUpperCase().replace("0X", "0x"); });
+  check("대문자 hex로 보내도 같은 값으로 본다", says(upper, "ELIGIBLE", "ALLOW"), shows(upper));
+
+  const short = await mutated("A", (r) => { r.accountHash = "0x" + BigInt(r.accountHash).toString(16); });
+  check("앞자리 0을 뗀 표기도 같은 값으로 본다", says(short, "ELIGIBLE", "ALLOW"), shows(short));
 }
 
 console.log("\n[사유 노출 금지]");
@@ -238,7 +271,7 @@ console.log("\n[요청 형식 — 잘못된 요청은 장애가 아니라 차단
   const bad = [
     ["본문이 없음", {}],
     ["본문이 null", null],
-    ["증명이 배열", { recipientAccountRef: "0x" + "11".repeat(32), proof: [], publicSignals: [], envelope: {} }],
+    ["증명이 배열", { accountHash: "0x" + "11".repeat(32), proof: [], publicSignals: [], envelope: {} }],
   ];
   for (const [label, payload] of bad) {
     const response = await verifyDirect(payload);
@@ -251,7 +284,7 @@ console.log("\n[요청 형식 — 잘못된 요청은 장애가 아니라 차단
     ["pi_a 원소가 숫자 아님", (r) => { r.proof.pi_a = ["x", "y", "z"]; }],
     ["공개 신호 개수 부족", (r) => { r.publicSignals.pop(); }],
     ["공개 신호가 hex 아님", (r) => { r.publicSignals[0] = "abc"; }],
-    ["계좌 참조값 형식 오류", (r) => { r.recipientAccountRef = "nope"; }],
+    ["계좌 해시 형식 오류", (r) => { r.accountHash = "nope"; }],
     ["nonce 형식 오류", (r) => { r.envelope.requestNonce = "1234"; }],
     ["회차가 0", (r) => { r.envelope.rootEpoch = 0; }],
     ["회차가 숫자 아님", (r) => { r.envelope.rootEpoch = "회차"; }],
@@ -293,9 +326,32 @@ console.log("\n[요청 바인딩]");
     check(label + " 차단", says(response, "UNKNOWN", "BLOCK"), shows(response));
   }
 
-  const otherRef = await mutated("A", (r) => { r.recipientAccountRef = "0x" + "22".repeat(32); });
+  const otherRef = await mutated("A", (r) => { r.accountHash = "0x" + "22".repeat(32); });
   check("물어본 계좌와 다른 증명 차단", says(otherRef, "UNKNOWN", "BLOCK"), shows(otherRef));
-  check("계좌 참조값 단계에서 멈춘다", stoppedAt(otherRef).includes("계좌 참조값"), stoppedAt(otherRef));
+  check("계좌 대조 단계에서 멈춘다", stoppedAt(otherRef).includes("같은 계좌"), stoppedAt(otherRef));
+}
+
+console.log("\n[계좌 바꿔치기 — 수취은행이 다른 계좌의 답을 내미는 경우]");
+{
+  // 적격 계좌 A의 증명을 그대로 들고, 차단돼야 할 계좌 F의 답인 것처럼 내민다.
+  // 참조값을 회로 밖에서 받기만 하던 때에는 이게 통했다.
+  const stolen = await freshRequest("A");
+  stolen.accountHash = toHex(accountHash(num("F")));
+  const swapped = await verifyDirect(stolen);
+  check("적격 계좌의 증명을 다른 계좌 답으로 못 쓴다", says(swapped, "UNKNOWN", "BLOCK"), shows(swapped));
+  check("계좌 대조 단계에서 멈춘다", stoppedAt(swapped).includes("같은 계좌"), stoppedAt(swapped));
+
+  // 반대 방향. 공개 신호의 계좌 해시를 물어본 계좌에 맞춰 고친다.
+  const forged = await freshRequest("A");
+  forged.accountHash = toHex(accountHash(num("F")));
+  forged.publicSignals[0] = forged.accountHash;
+  const forgedResponse = await verifyDirect(forged);
+  check("공개 신호를 고쳐 맞춰도 증명 검증에서 걸린다", says(forgedResponse, "NOT_ELIGIBLE", "BLOCK"), shows(forgedResponse));
+  check("증명 검증까지 간다", stoppedAt(forgedResponse).includes("영지식증명"), stoppedAt(forgedResponse));
+
+  // 수취은행이 아예 다른 계좌를 물어본 것처럼 꾸며도 송금은행이 직접 계산한 해시와 어긋난다.
+  const askedF = await transfer(num("F"));
+  check("차단 계좌는 여전히 차단", says(askedF, "NOT_ELIGIBLE", "BLOCK"), shows(askedF));
 }
 
 console.log("\n[회로와 검증키]");
@@ -377,6 +433,48 @@ console.log("\n[트리와 체인의 어긋남]");
   await admin("rebuild-root");
   const recovered = await transfer(num("A"));
   check("다시 앵커링하면 복구된다", says(recovered, "ELIGIBLE", "ALLOW"), shows(recovered));
+}
+
+console.log("\n[인터페이스 샘플]");
+{
+  // app/fixtures/의 요청·응답 샘플은 팀원이 화면과 중계를 만들 때 보는 계약이다.
+  // 코드가 바뀌었는데 샘플이 그대로면, 샘플대로 만든 쪽이 조용히 어긋난다.
+  // UPDATE_FIXTURES=1 로 돌리면 이번 실행에서 나온 진짜 값으로 다시 쓴다.
+  const sample = await freshRequest("A");
+  const verified = await verifyDirect(clone(sample));
+
+  const files = {
+    "verify.request.json": sample,
+    "verify.eligible.json": { status: "ELIGIBLE", decision: "ALLOW", rootEpoch: verified.body.rootEpoch },
+    "interbank-proof.response.json": {
+      result: "PROOF",
+      proof: sample.proof,
+      publicSignals: sample.publicSignals,
+      envelope: {
+        rootEpoch: sample.envelope.rootEpoch,
+        circuitId: sample.envelope.circuitId,
+        verifyingKeyHash: sample.envelope.verifyingKeyHash,
+      },
+    },
+  };
+
+  const keysOf = (value) => (value && typeof value === "object" ? Object.keys(value).sort().join(",") : "");
+  for (const [name, fresh] of Object.entries(files)) {
+    const path = join(ROOT, "app", "fixtures", name);
+    if (process.env.UPDATE_FIXTURES) {
+      writeFileSync(path, JSON.stringify(fresh, null, 2) + "\n");
+      continue;
+    }
+    const stored = JSON.parse(readFileSync(path, "utf8"));
+    check(`${name} 이 코드와 같은 모양이다`, keysOf(stored) === keysOf(fresh), `${keysOf(stored)} != ${keysOf(fresh)}`);
+  }
+
+  const envelope = JSON.parse(readFileSync(join(ROOT, "app", "fixtures", "verify.request.json"), "utf8")).envelope;
+  check(
+    "봉투 항목도 같다",
+    process.env.UPDATE_FIXTURES ? true : keysOf(envelope) === keysOf(sample.envelope),
+    `${keysOf(envelope)} != ${keysOf(sample.envelope)}`,
+  );
 }
 
 console.log("\n[읽을 수 없는 본문]");

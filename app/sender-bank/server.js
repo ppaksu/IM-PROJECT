@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config, url } from "../config.js";
 import { postJson, startServer } from "../lib/http.js";
+import { accountHash, toHex } from "../lib/field.js";
 
 const WEB_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "web");
 
@@ -19,7 +20,12 @@ function audit(entry) {
 
 async function checkTransfer(body) {
   const accountNumber = String(body.accountNumber ?? "").trim();
-  if (!accountNumber) {
+  // 이 값을 우리가 직접 계산하는 것이 요점이다. 수취은행이 준 값을 그대로 쓰면 어떤
+  // 계좌의 증명을 받아도 물어본 계좌의 답으로 보인다.
+  let asked;
+  try {
+    asked = toHex(accountHash(accountNumber));
+  } catch {
     return { status: 400, body: { error: "계좌번호가 필요하다" } };
   }
 
@@ -57,7 +63,7 @@ async function checkTransfer(body) {
 
   // 3. 검증자에게 넘긴다.
   const verifyResponse = await postJson(`${url.verifier}/api/v1/recipient/eligibility/verify`, {
-    recipientAccountRef: proofResponse.body.recipientAccountRef,
+    accountHash: asked,
     proof: proofResponse.body.proof,
     publicSignals: proofResponse.body.publicSignals,
     envelope: {
@@ -87,7 +93,7 @@ async function checkTransfer(body) {
       status: verifyResponse.body.status,
       decision: verifyResponse.body.decision,
       rootEpoch: verifyResponse.body.rootEpoch,
-      recipientAccountRef: proofResponse.body.recipientAccountRef,
+      accountHash: asked,
       timeline,
     },
   };

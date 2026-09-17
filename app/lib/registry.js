@@ -3,7 +3,7 @@
 // 적격 판정과 트리 구성이 여기 한 곳에 있다. 둘이 떨어져 있으면 "판정은 적격인데
 // 트리에 자리가 없다" 같은 어긋남이 생긴다. 출력 모양은 기준값 파일
 // app/fixtures/registry.sample.json 과 같다. IM_PROJECT_PLAN.md 2.2, 2.6.1
-import { hashToField, poseidon, recipientAccountRef, toHex } from "./field.js";
+import { accountHash, hashToField, poseidon, recipientAccountRef, refKeyOf, toHex } from "./field.js";
 import { config } from "../config.js";
 
 /** 회로 컴파일 시점에 고정된다. 바꾸면 회로도 같이 바꿔야 한다. 계획서 2.2 */
@@ -107,17 +107,19 @@ export async function buildRegistry({ accounts, params: overrides, revoked } = {
   const zeros = await zeroHashes(TREE_DEPTH);
   const policyHash = hashToField(params.policy);
   const issuerId = hashToField(params.issuer);
+  // 은행·프로토콜마다 하나다. 증명을 만들 때 회로의 비공개 입력으로 들어간다.
+  const refKey = refKeyOf({
+    bankSecret: params.bankSecret,
+    protocolId: params.protocolId,
+    bankId: params.recipientBankId,
+  });
 
   const leafByIndex = new Map();
   const records = [];
 
   for (const [index, account] of accounts.entries()) {
-    const ref = recipientAccountRef({
-      bankSecret: params.bankSecret,
-      protocolId: params.protocolId,
-      bankId: params.recipientBankId,
-      accountNumber: account.accountNumber,
-    });
+    const ref = await recipientAccountRef({ refKey, accountNumber: account.accountNumber });
+    const accountField = accountHash(account.accountNumber);
     const verdict = eligibilityOf(account, {
       revoked,
       minAccountAgeDays: params.minAccountAgeDays,
@@ -127,6 +129,7 @@ export async function buildRegistry({ accounts, params: overrides, revoked } = {
       records.push({
         id: account.id,
         index,
+        accountHash: toHex(accountField),
         recipientAccountRef: toHex(ref),
         inTree: false,
         leaf: toHex(0),
@@ -140,6 +143,7 @@ export async function buildRegistry({ accounts, params: overrides, revoked } = {
     records.push({
       id: account.id,
       index,
+      accountHash: toHex(accountField),
       recipientAccountRef: toHex(ref),
       inTree: true,
       eligibilityStatus: 1,
@@ -171,6 +175,8 @@ export async function buildRegistry({ accounts, params: overrides, revoked } = {
     derived: {
       policyHash: toHex(policyHash),
       issuerId: toHex(issuerId),
+      // 데모 값이다. 운영에서는 이 값이 파일로 나가면 안 된다.
+      refKey: toHex(refKey),
       zeroLeaf: toHex(0),
       zeroSubtreeHashes: zeros.map(toHex),
     },

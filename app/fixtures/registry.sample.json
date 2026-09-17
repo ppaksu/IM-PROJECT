@@ -14,6 +14,7 @@
   "derived": {
     "policyHash": "0x001e0ee961192726af6d3fa2a55a3f5a1fddbe8a4a5b8265cf29a1b9a4245f25",
     "issuerId": "0x00f2800cfd51aaedb98e0a2fb88c8e3da3441076bb6d454b8e68b8d11c669e8d",
+    "refKey": "0x00ffee3bc14bdb2cc5a6af2fff31cbb52b0ee4847db731d6c78b5060b10af737",
     "zeroLeaf": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "zeroSubtreeHashes": [
       "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -35,19 +36,20 @@
       "0x2a7c7c9b6ce5880b9f6f228d72bf6a575a526f29c66ecceef8b753d38bba7323"
     ]
   },
-  "eligibilityRoot": "0x095ef5b8eb064891cd95dd70b5d86310750be8ad4d521fc79e1a7d3c1ba63d38",
+  "eligibilityRoot": "0x2689cc6359f754ade0f3c5809ef6b391b5d3f50e5b85be854bcd17d2c387e541",
   "records": [
     {
       "id": "A",
       "index": 0,
-      "recipientAccountRef": "0x00c242eb9eb8b70615fab0c497673716e1edff5b7947b72393259a3c12b528c4",
+      "accountHash": "0x001620556d688abd983aa92ac604790e758a6f92d1ee63873b59cdcb01d22caa",
+      "recipientAccountRef": "0x1927307ad4f74a98db80663869c783c673ee7de9ad78decdc76c865f846fa30e",
       "inTree": true,
       "eligibilityStatus": 1,
       "validUntil": 1791590400,
-      "leaf": "0x08a85d17d3286848a5e5804bd7150b8ab5b20e41196ddfcdc621ba4c575f39b9",
+      "leaf": "0x022954249213b539599f8dd02d3fdc7081b17d6ccea55497620f2af43b9f82f9",
       "pathElements": [
-        "0x080b719023029941b2d0d4af3b660a4bf552c85f7eac03ac8024c13260223d84",
-        "0x0c8c902f6944f335237d01347ace3aa8d0b8bc2f442237b97c64578baa50424e",
+        "0x22e44fa59dee1f185aa765b6742bba8f2d1cce4b6c1ebc5b272593b942346792",
+        "0x2a439f2c4738562caa34a907b80225ab6e880cd605570a92599df6372c51bf27",
         "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
         "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
         "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
@@ -85,14 +87,15 @@
     {
       "id": "B",
       "index": 1,
-      "recipientAccountRef": "0x003834ac44e5f23fc1ad1be13fc9b7cbfb4a02ac054735afdfed96f5645319d1",
+      "accountHash": "0x005bedbf74619d07a29e9ab5d5bd3c47507abc13bdfd9b4cae3f85c420ec9c40",
+      "recipientAccountRef": "0x23bca10329f752b3cd1bb4a79ae08f7f88155bdecd0f036987ffa2ea1b82f8b7",
       "inTree": true,
       "eligibilityStatus": 1,
       "validUntil": 1791590400,
-      "leaf": "0x080b719023029941b2d0d4af3b660a4bf552c85f7eac03ac8024c13260223d84",
+      "leaf": "0x22e44fa59dee1f185aa765b6742bba8f2d1cce4b6c1ebc5b272593b942346792",
       "pathElements": [
-        "0x08a85d17d3286848a5e5804bd7150b8ab5b20e41196ddfcdc621ba4c575f39b9",
-        "0x0c8c902f6944f335237d01347ace3aa8d0b8bc2f442237b97c64578baa50424e",
+        "0x022954249213b539599f8dd02d3fdc7081b17d6ccea55497620f2af43b9f82f9",
+        "0x2a439f2c4738562caa34a907b80225ab6e880cd605570a92599df6372c51bf27",
         "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
         "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
         "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
@@ -130,14 +133,15 @@
     {
       "id": "C",
       "index": 2,
-      "recipientAccountRef": "0x00933034a525bdf24c637d8d08adde08b272cd3d2c41f935cf903b2007d7ad49",
+      "accountHash": "0x007c6c8edb68996eccce45fa849a49ecb484451252d66f94315f9d211b3c5f5e",
+      "recipientAccountRef": "0x177c80be44c3358f78b6da0f454a7b79df4242a17296142184308094244ca37a",
       "inTree": true,
       "eligibilityStatus": 1,
       "validUntil": 1791590400,
-      "leaf": "0x25506079d08b7a7eea967bb7da17607a2eafbda15c4729bed353f1cfac16a584",
+      "leaf": "0x1047d2ea1cf47e29043679955fe12b8e9f65c2420154e35447a94cba0aed5080",
       "pathElements": [
         "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "0x0dab375a0be2c4c0ef066d0a7ab69315ec787d013f25343664967d2fd3850f39",
+        "0x17b87497c3672ed0f89d9b0418835fb32114887f0d59a78aed2a7f75253d9b1b",
         "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1",
         "0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
         "0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a",
@@ -175,7 +179,8 @@
     {
       "id": "D",
       "index": 3,
-      "recipientAccountRef": "0x004052cd8a6b3b3210acd4ea530b304a9896c981c2edbfe243a21496ad1e98bc",
+      "accountHash": "0x0077c7eceda6a68bbcf118e80eaeb24441fd43d22f5712315fdaeb0b14ea2633",
+      "recipientAccountRef": "0x18d0cd7cdeefd0c9d7f25636b1ef61d652f80abd0a1c28c13e2cd27e2861dbcb",
       "inTree": false,
       "leaf": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "excludedBecause": "SUSPENDED"
@@ -183,7 +188,8 @@
     {
       "id": "E",
       "index": 4,
-      "recipientAccountRef": "0x007f05319a72e57250c3b5a3cd9213ad7bb2dc32dbdcb196d424141464ae506b",
+      "accountHash": "0x0038770f8dc24e9d26186b2c56821fac0f61fe2c0088c6ba04efae2107050f3b",
+      "recipientAccountRef": "0x03bc91d15289c62545147985a14d18c33062efbdf10c3f34e5e9aa20ceb79f7f",
       "inTree": false,
       "leaf": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "excludedBecause": "KYC_INCOMPLETE"
@@ -191,7 +197,8 @@
     {
       "id": "F",
       "index": 5,
-      "recipientAccountRef": "0x002eb414d14351bec98fb8e69b88be626ea48ea81486d1154bb834de381cb022",
+      "accountHash": "0x0047e934cd902920ed6e30db313cfc624c95b75d6348bd20fd178d766baca352",
+      "recipientAccountRef": "0x0b4528a75a78904c7c639f2f80625ac7b4a6a0e2c9352384fb96e071e260dd9f",
       "inTree": false,
       "leaf": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "excludedBecause": "NEW_ACCOUNT"

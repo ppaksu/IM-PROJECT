@@ -18,7 +18,7 @@ export const VKEY = join(BUILD, "eligibility.vkey.json");
 
 /** 회로의 main 선언과 같은 순서다. 바꾸면 회로도 같이 바꿔야 한다. */
 export const PUBLIC_SIGNALS = [
-  "recipientAccountRef",
+  "accountHash",
   "eligibilityRoot",
   "policyHash",
   "issuerId",
@@ -45,7 +45,7 @@ export async function requestContext({ senderBankId, verifierId, requestNonce })
  */
 export function buildInput({ record, registry, verificationTime, context }) {
   return {
-    recipientAccountRef: toDecimal(record.recipientAccountRef),
+    accountHash: toDecimal(record.accountHash),
     eligibilityRoot: toDecimal(registry.eligibilityRoot),
     policyHash: toDecimal(registry.derived.policyHash),
     issuerId: toDecimal(registry.derived.issuerId),
@@ -53,6 +53,7 @@ export function buildInput({ record, registry, verificationTime, context }) {
     requestContext: toDecimal(context),
     eligibilityStatus: toDecimal(record.eligibilityStatus),
     validUntil: toDecimal(record.validUntil),
+    refKey: toDecimal(registry.derived.refKey),
     pathElements: record.pathElements.map(toDecimal),
     pathIndices: record.pathIndices.map(toDecimal),
   };

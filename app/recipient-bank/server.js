@@ -10,6 +10,7 @@ import { startServer } from "../lib/http.js";
 import { buildInput, circuitMeta, prove, requestContext } from "../lib/circuit.js";
 import { anchorRoot, bankIdOf, latestAnchor } from "../lib/anchor.js";
 import { buildRegistry, eligibilityOf } from "../lib/registry.js";
+import { normalizeAccountNumber } from "../lib/field.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -38,13 +39,18 @@ function currentEpoch() {
   return currentAnchor().rootEpoch;
 }
 
-function normalize(accountNumber) {
-  return String(accountNumber ?? "").replace(/[^0-9]/g, "");
-}
-
 function findAccount(accountNumber) {
-  const wanted = normalize(accountNumber);
-  return accounts.find((account) => normalize(account.accountNumber) === wanted) ?? null;
+  // 정규화는 field.js 한 곳에서만 한다. 여기서 따로 하면 송금은행이 계산한 계좌 해시와
+  // 어긋나고, 멀쩡한 계좌가 조용히 차단된다.
+  let wanted;
+  try {
+    wanted = normalizeAccountNumber(accountNumber);
+  } catch {
+    return null;
+  }
+  return (
+    accounts.find((account) => normalizeAccountNumber(account.accountNumber) === wanted) ?? null
+  );
 }
 
 /**
@@ -96,7 +102,6 @@ async function makeProof(account, request) {
 
   return {
     result: "PROOF",
-    recipientAccountRef: record.recipientAccountRef,
     proof,
     publicSignals,
     envelope: {
@@ -109,7 +114,13 @@ async function makeProof(account, request) {
 
 const routes = {
   "POST /interbank/v1/recipient/eligibility/proof": async (body) => {
-    if (body.protocolVersion !== config.protocolVersion || !body.requestNonce) {
+    // 우리 앞으로 온 요청인지부터 본다. 다른 은행 이름을 달고 온 요청에 우리 계좌를
+    // 답하면, 요청자는 어느 은행에 물었는지와 무관한 답을 받는다.
+    const addressedToUs =
+      body.protocolVersion === config.protocolVersion &&
+      body.recipientBankId === config.recipientBankId &&
+      Boolean(body.requestNonce);
+    if (!addressedToUs) {
       return { status: 400, body: { result: "NO_PROOF", status: "NOT_ELIGIBLE" } };
     }
 

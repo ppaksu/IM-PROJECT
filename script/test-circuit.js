@@ -53,7 +53,7 @@ await check("증명이 검증된다", async () => {
 await check("공개 신호가 여섯 개이고 순서가 맞다", async () => {
   assert.equal(publicSignals.length, 6);
   const named = namedSignals(publicSignals);
-  assert.equal(named.recipientAccountRef, record.recipientAccountRef);
+  assert.equal(named.accountHash, record.accountHash);
   assert.equal(named.eligibilityRoot, registry.eligibilityRoot);
   assert.equal(named.policyHash, registry.derived.policyHash);
   assert.equal(named.issuerId, registry.derived.issuerId);
@@ -64,7 +64,7 @@ await check("공개 신호가 여섯 개이고 순서가 맞다", async () => {
 console.log("\n공개 신호를 바꾸면 검증이 실패한다");
 
 for (const [name, index] of [
-  ["계좌 참조값 변경", 0],
+  ["계좌 해시 변경", 0],
   ["Root 변경", 1],
   ["정책 해시 변경", 2],
   ["발급기관 변경", 3],
@@ -102,6 +102,18 @@ await mustFailToProve("방향 비트가 0도 1도 아님", (input) => {
 
 await mustFailToProve("record의 기한만 바꿔 leaf를 흔듦", (input) => {
   input.validUntil = toDecimal(BigInt(input.validUntil) + 1n);
+});
+
+// 이 회로의 핵심이다. 어떤 계좌의 record를 들고 다른 계좌의 답이라고 내밀 수 없다.
+// 참조값을 회로 밖에서 받기만 하면 이 두 가지가 막히지 않는다.
+const other = registry.records.find((entry) => entry.inTree && entry.id !== record.id);
+
+await mustFailToProve("다른 계좌의 record로 이 계좌의 답을 만듦", (input) => {
+  input.accountHash = toDecimal(other.accountHash);
+});
+
+await mustFailToProve("참조값 유도 키를 바꿔 계좌를 갈아끼움", (input) => {
+  input.refKey = toDecimal(BigInt(input.refKey) + 1n);
 });
 
 console.log(`\n${passed}개 통과. 증명 생성 ${elapsed}ms`);

@@ -44,8 +44,8 @@ function malformedProof(proof) {
  * 장애로 답하게 된다. 잘못된 요청은 장애가 아니라 차단이다.
  */
 function malformed(body) {
-  const { recipientAccountRef, proof, publicSignals, envelope } = body ?? {};
-  if (!isHex(recipientAccountRef)) return "계좌 참조값 형식";
+  const { accountHash, proof, publicSignals, envelope } = body ?? {};
+  if (!isHex(accountHash)) return "계좌 해시 형식";
   if (!proof || typeof proof !== "object" || Array.isArray(proof)) return "증명 형식";
   const proofError = malformedProof(proof);
   if (proofError) return `증명 형식 ${proofError}`;
@@ -139,7 +139,7 @@ async function runChecks(body) {
   // 1. 요청 형식과 공개 신호 개수
   const shapeError = malformed(body);
   if (!step("요청 형식과 공개 신호 6개", !shapeError, shapeError ?? "")) return fail("UNKNOWN");
-  const { recipientAccountRef, proof, publicSignals, envelope } = body;
+  const { accountHash, proof, publicSignals, envelope } = body;
 
   // 2. nonce 단일 사용
   const nonceError = nonces.consume(envelope.requestNonce);
@@ -156,8 +156,14 @@ async function runChecks(body) {
   const signals = namedSignals(publicSignals);
   if (!step("요청 바인딩 일치", signals.requestContext === expected)) return fail("UNKNOWN");
 
-  // 4. 이 증명이 우리가 물어본 계좌의 것인지
-  if (!step("계좌 참조값 일치", signals.recipientAccountRef === recipientAccountRef)) {
+  // 4. 이 증명이 우리가 물어본 계좌의 것인지.
+  //
+  // accountHash는 송금은행이 사용자가 입력한 계좌번호로 직접 계산한 값이고, 공개 신호의
+  // accountHash는 회로가 leaf의 참조값을 만들 때 쓴 값이다. 둘이 같으면 이 증명은
+  // 물어본 그 계좌에 대한 것이다. 수취은행이 다른 계좌의 record로 답을 바꿔치기할 수 없다.
+  // 표기를 맞춘 뒤 비교한다. 대문자 hex나 앞자리 0을 뗀 표기로 보내는 구현이 있으면
+  // 값이 같은데도 막히고, 원인이 잘 드러나지 않는다.
+  if (!step("물어본 계좌와 같은 계좌", signals.accountHash === toHex(accountHash))) {
     return fail("UNKNOWN");
   }
 

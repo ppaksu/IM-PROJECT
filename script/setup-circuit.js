@@ -14,7 +14,7 @@ import { sha256Hex } from "../app/lib/field.js";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BUILD = join(ROOT, "build");
 const CIRCUIT_ID = "eligible-account-v1";
-const POWER = 13; // 2^13 = 8192. 회로 제약이 4271개라 여유가 있다.
+const POWER = 13; // 2^13 = 8192. 회로 제약이 4511개라 여유가 있다.
 
 function run(command, args) {
   console.log(`$ ${command} ${args.join(" ")}`);

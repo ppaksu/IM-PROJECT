@@ -1,7 +1,7 @@
 {
   "circuitId": "eligible-account-v1",
   "circuitIdHash": "0xb2c618878132162871b43b255e003e9b4ab880e1c18758b30ee5a5fae1fc4c4a",
-  "verifyingKeyHash": "0x36d8ab9048f9915142b266acb31865c0b4cd1d7bb338547c9a847bbd9ffca059",
+  "verifyingKeyHash": "0x7dfb7b1c4c222d139026c6d9623056248a7835a078ee26b2d108aac66a1f8f96",
   "treeDepth": 16,
-  "builtAt": 1789208163
+  "builtAt": 1789645416
 }

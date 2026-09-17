@@ -68,7 +68,15 @@ export function startServer({ name, port, routes, staticDir = null }) {
 
     try {
       if (handler) {
-        const body = req.method === "POST" ? await readJsonBody(req) : {};
+        let body = {};
+        if (req.method === "POST") {
+          try {
+            body = await readJsonBody(req);
+          } catch {
+            // 읽을 수 없는 본문은 우리 잘못이 아니다. 장애로 보이는 500을 주지 않는다.
+            return send(400, { error: "bad request body" });
+          }
+        }
         const result = await handler(body, { req, suffix: wildcardSuffix });
         if (result && typeof result.status === "number" && "body" in result) {
           return send(result.status, result.body);

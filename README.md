@@ -52,6 +52,19 @@ node script/make-registry-fixture.js
 
 값 변환은 `app/lib/field.js` 한 곳에서만 한다.
 
+## 검사
+
+```bash
+node script/test-circuit.js   # 회로. 정상 증명과 불일치 14가지
+node script/test-nonce.js     # nonce 보관소
+forge test                    # Anchor Contract 14가지
+node script/test-e2e.js       # 서버 세 대의 전체 흐름 87가지 (anvil 필요)
+```
+
+`test-e2e.js`는 서버를 직접 띄우고 배포와 앵커링까지 한다. 유예 만료나 Root 만료처럼
+시간이 필요한 경우는 `GRACE_SECONDS`, `ROOT_PERIOD_SECONDS` 같은 환경변수로 줄여서 돌린다.
+마지막 검사가 체인 장애를 보느라 anvil을 종료하므로, 이어서 시연하려면 anvil부터 다시 띄운다.
+
 ## 인터페이스 계약
 
 `app/fixtures/`에 요청과 응답 샘플이 있다. 화면과 중계 서버는 이 파일을 기준으로 만든다.

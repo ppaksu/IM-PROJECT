@@ -11,7 +11,9 @@
     "sender-bank": "node app/sender-bank/server.js",
     "fixture": "node script/make-registry-fixture.js",
     "circuit:setup": "node script/setup-circuit.js",
-    "circuit:test": "node script/test-circuit.js"
+    "circuit:test": "node script/test-circuit.js",
+    "test:nonce": "node script/test-nonce.js",
+    "test:e2e": "node script/test-e2e.js"
   },
   "dependencies": {
     "circomlib": "^2.0.5",

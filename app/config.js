@@ -1,4 +1,9 @@
 // 세 서버가 공유하는 식별자와 포트. IM_PROJECT_PLAN.md 2절과 4절을 따른다.
+
+// 시간값은 환경변수로 덮을 수 있다. 유예 만료나 Root 만료를 확인하려면 이 값을 줄여야
+// 하는데, 그때마다 이 파일을 고치면 되돌리는 것을 잊고 그대로 시연에 들어간다.
+const seconds = (name, fallback) => Number(process.env[name]) || fallback;
+
 export const config = {
   protocolVersion: "1",
   senderBankId: "bank-a",
@@ -14,10 +19,10 @@ export const config = {
   exposeVerificationSteps: true,
 
   // 데모 값. 계획서 2.4 ~ 2.6
-  nonceTtlSeconds: 120,
-  clockSkewSeconds: 120,
-  graceSeconds: 60,
-  rootPeriodSeconds: 300,
+  nonceTtlSeconds: seconds("NONCE_TTL_SECONDS", 120),
+  clockSkewSeconds: seconds("CLOCK_SKEW_SECONDS", 120),
+  graceSeconds: seconds("GRACE_SECONDS", 60),
+  rootPeriodSeconds: seconds("ROOT_PERIOD_SECONDS", 300),
 
   ports: {
     senderBank: 8080, // 화면과 중계

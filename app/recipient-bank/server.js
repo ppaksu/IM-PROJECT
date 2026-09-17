@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { config } from "../config.js";
 import { startServer } from "../lib/http.js";
 import { buildInput, circuitMeta, prove, requestContext } from "../lib/circuit.js";
-import { anchorRoot, bankIdOf, latestEpoch } from "../lib/anchor.js";
+import { anchorRoot, bankIdOf, latestAnchor } from "../lib/anchor.js";
 import { buildRegistry, eligibilityOf } from "../lib/registry.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -30,8 +30,12 @@ const bankId = bankIdOf(config.recipientBankId);
  * 따로 세면 앵커링하지 않은 회차로 증명을 발급하게 되고, 검증자는 그 회차를 모르므로
  * 멀쩡한 계좌가 차단된다.
  */
+function currentAnchor() {
+  return latestAnchor(bankId);
+}
+
 function currentEpoch() {
-  return latestEpoch(bankId);
+  return currentAnchor().rootEpoch;
 }
 
 function normalize(accountNumber) {
@@ -67,8 +71,16 @@ async function makeProof(account, request) {
   const record = recordOf(account);
   if (!record) return null;
 
-  const rootEpoch = currentEpoch();
-  if (rootEpoch === 0) return null; // 아직 앵커된 Root가 없다
+  const anchor = currentAnchor();
+  if (anchor.rootEpoch === 0) return null; // 아직 앵커된 Root가 없다
+
+  // 체인에 올라간 Root가 내 트리와 다르면 증명을 내도 검증자가 거절한다. 밖에서 따로
+  // 앵커링했을 때 이렇게 된다. 멀쩡한 계좌를 차단으로 만들지 말고 장애로 답한다.
+  if (anchor.eligibilityRoot !== registry.eligibilityRoot) {
+    throw new Error(
+      `체인 Root ${anchor.eligibilityRoot} 와 내 트리 ${registry.eligibilityRoot} 가 다르다`,
+    );
+  }
 
   const context = await requestContext({
     senderBankId: request.senderBankId,
@@ -88,7 +100,7 @@ async function makeProof(account, request) {
     proof,
     publicSignals,
     envelope: {
-      rootEpoch,
+      rootEpoch: anchor.rootEpoch,
       circuitId: meta.circuitId,
       verifyingKeyHash: meta.verifyingKeyHash,
     },
@@ -128,7 +140,14 @@ const routes = {
 
   // 아래는 시연 조작용이다. 실제 은행 간 API에는 없다.
   "GET /admin/accounts": () => ({
-    rootEpoch: currentEpoch(),
+    // 체인이 죽어도 목록 자체는 보여준다. 회차만 비운다.
+    rootEpoch: (() => {
+      try {
+        return currentEpoch();
+      } catch {
+        return null;
+      }
+    })(),
     accounts: accounts.map((account) => {
       const verdict = eligibility(account);
       return {

@@ -177,7 +177,11 @@ const routes = {
   "POST /admin/revoke": (body) => {
     const account = findAccount(body.accountNumber);
     if (!account) return { status: 404, body: { error: "unknown account" } };
-    const status = body.status === "SUSPENDED" ? "SUSPENDED" : "REVOKED";
+    // 모르는 상태값을 임의로 REVOKED로 바꾸지 않는다. 조작한 쪽이 뭘 걸었는지 모르게 된다.
+    const status = body.status ?? "REVOKED";
+    if (status !== "SUSPENDED" && status !== "REVOKED") {
+      return { status: 400, body: { error: "status는 SUSPENDED 또는 REVOKED다" } };
+    }
     revoked.set(account.accountNumber, status);
     console.log(`[recipient-bank] hot revocation 추가 account=${account.id} status=${status}`);
     return { ok: true, account: account.id, status };

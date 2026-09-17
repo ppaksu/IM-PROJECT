@@ -58,8 +58,12 @@ node script/make-registry-fixture.js
 node script/test-circuit.js   # 회로. 정상 증명과 불일치 14가지
 node script/test-nonce.js     # nonce 보관소
 forge test                    # Anchor Contract 14가지
-node script/test-e2e.js       # 서버 세 대의 전체 흐름 87가지 (anvil 필요)
+node script/test-e2e.js       # 서버 세 대의 전체 흐름 100가지 (anvil 필요)
+node script/audit.js          # 공격과 경계값 77가지 (anvil 필요)
 ```
+
+두 파일 모두 서버를 직접 띄우므로 먼저 서버를 끄고 실행한다. 포트가 이미 쓰이고 있으면
+멈춘다. 안 그러면 옛 코드를 상대로 검사하게 된다.
 
 `test-e2e.js`는 서버를 직접 띄우고 배포와 앵커링까지 한다. 유예 만료나 Root 만료처럼
 시간이 필요한 경우는 `GRACE_SECONDS`, `ROOT_PERIOD_SECONDS` 같은 환경변수로 줄여서 돌린다.

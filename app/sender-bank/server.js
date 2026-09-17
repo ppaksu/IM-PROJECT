@@ -34,6 +34,15 @@ async function checkTransfer(body) {
 
   // 1. 검증자가 nonce를 발급한다. 계획서 2.4
   const nonce = await postJson(`${url.verifier}/api/v1/recipient/eligibility/nonce`, {});
+  // nonce를 못 받았는데 그냥 진행하면, 수취은행이 형식 오류로 거절하고 그 거절이
+  // "적격 아님"으로 읽힌다. 검증자 장애가 전 계좌 차단으로 둔갑한다.
+  if (nonce.status !== 200 || typeof nonce.body.requestNonce !== "string") {
+    audit({ accountNumber, status: "UNAVAILABLE", decision: "NO_SAFETY_ASSERTION" });
+    return {
+      status: 503,
+      body: { status: "UNAVAILABLE", decision: "NO_SAFETY_ASSERTION", timeline },
+    };
+  }
   mark("검증 nonce 발급", nonce.body.requestNonce);
 
   // 2. 수취은행에 증명을 요청한다.
@@ -121,12 +130,10 @@ const routes = {
     const response = await fetch(`${url.recipientBank}/admin/accounts`);
     return response.json();
   },
-  "POST /admin/revoke": async (body) =>
-    (await postJson(`${url.recipientBank}/admin/revoke`, body)).body,
-  "POST /admin/restore": async (body) =>
-    (await postJson(`${url.recipientBank}/admin/restore`, body)).body,
-  "POST /admin/rebuild-root": async () =>
-    (await postJson(`${url.recipientBank}/admin/rebuild-root`, {})).body,
+  // 하위 서버의 상태 코드를 그대로 넘긴다. 삼키면 실패한 조작이 성공으로 보인다.
+  "POST /admin/revoke": (body) => postJson(`${url.recipientBank}/admin/revoke`, body),
+  "POST /admin/restore": (body) => postJson(`${url.recipientBank}/admin/restore`, body),
+  "POST /admin/rebuild-root": () => postJson(`${url.recipientBank}/admin/rebuild-root`, {}),
 };
 
 startServer({ name: "sender-bank", port: config.ports.senderBank, routes, staticDir: WEB_DIR });

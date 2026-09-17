@@ -13,7 +13,8 @@
     "circuit:setup": "node script/setup-circuit.js",
     "circuit:test": "node script/test-circuit.js",
     "test:nonce": "node script/test-nonce.js",
-    "test:e2e": "node script/test-e2e.js"
+    "test:e2e": "node script/test-e2e.js",
+    "test:audit": "node script/audit.js"
   },
   "dependencies": {
     "circomlib": "^2.0.5",

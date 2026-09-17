@@ -4,7 +4,7 @@
 // 검증 실패와 서비스 장애를 구분한다. 체인을 못 읽은 것을 허용으로도 차단으로도 바꾸지 않는다.
 import { config } from "../config.js";
 import { startServer } from "../lib/http.js";
-import { hashToField, toHex } from "../lib/field.js";
+import { FIELD_PRIME, hashToField, toHex } from "../lib/field.js";
 import { circuitMeta, namedSignals, requestContext, verify as verifyProof } from "../lib/circuit.js";
 import { anchorOf, bankIdOf, latestAnchor, sha256Bytes32 } from "../lib/anchor.js";
 import { createNonceStore } from "../lib/nonce.js";
@@ -30,6 +30,11 @@ const isPoint = (value) => Array.isArray(value) && value.length === 3 && value.e
  * 이 검사가 없으면 모양이 깨진 증명에서 검증기가 터지고, 잘못된 요청이 장애로 답해진다.
  */
 function malformedProof(proof) {
+  // 증명이 스스로 밝히는 방식이 우리가 쓸 검증키와 같아야 한다. 이 확인이 없으면
+  // 다른 방식이라고 적힌 증명을 라이브러리 동작에 맡기게 된다. 버전에 따라 예외가
+  // 나기도 하고 그냥 무시되기도 하는데, 예외가 나면 잘못된 요청이 장애로 답해진다.
+  if (proof.protocol !== "groth16") return "protocol";
+  if (proof.curve !== "bn128") return "curve";
   if (!isPoint(proof.pi_a)) return "pi_a";
   if (!isPoint(proof.pi_c)) return "pi_c";
   const b = proof.pi_b;
@@ -51,15 +56,23 @@ function malformed(body) {
   if (proofError) return `증명 형식 ${proofError}`;
   if (!Array.isArray(publicSignals) || publicSignals.length !== 6) return "공개 신호 개수";
   if (!publicSignals.every(isHex)) return "공개 신호 형식";
+  // 필드 밖의 값은 정상 증명에서 나올 수 없다. 여기서 막지 않으면 같은 원소를 가리키는
+  // 표기가 여러 개가 되어, 뒤의 값 대조가 표기에 따라 달라진다.
+  if (!publicSignals.every((value) => BigInt(value) < FIELD_PRIME)) return "공개 신호 범위";
   if (!envelope || typeof envelope !== "object") return "봉투 형식";
   if (!isHex(envelope.requestNonce)) return "nonce 형식";
   for (const key of ["senderBankId", "verifierId", "recipientBankId", "circuitId"]) {
     if (!isName(envelope[key])) return `${key} 형식`;
   }
   if (!isHex(envelope.verifyingKeyHash)) return "검증키 해시 형식";
-  if (!Number.isInteger(Number(envelope.rootEpoch)) || Number(envelope.rootEpoch) < 1) {
-    return "회차 형식";
-  }
+  // 숫자나 숫자 문자열만 받는다. Number()에 맡기면 [1]이나 true가 조용히 1이 된다.
+  const epoch = envelope.rootEpoch;
+  const epochOk =
+    (typeof epoch === "number" || typeof epoch === "string") &&
+    /^[0-9]+$/.test(String(epoch)) &&
+    Number.isSafeInteger(Number(epoch)) &&
+    Number(epoch) >= 1;
+  if (!epochOk) return "회차 형식";
   return null;
 }
 
@@ -224,15 +237,8 @@ async function runChecks(body) {
 }
 
 const routes = {
-  "POST /api/v1/recipient/eligibility/nonce": () => {
-    const issued = nonces.issue();
-    if (!issued) {
-      // 보관소가 가득 찼다. 아직 쓰지 않은 nonce를 밀어내지 않고 발급을 멈춘다.
-      console.error("[verifier] nonce 보관소 상한 도달");
-      return { status: 503, body: { error: "nonce를 발급할 수 없다" } };
-    }
-    return issued;
-  },
+  // 발급은 아무것도 기록하지 않는다. 반복 호출로 발급을 막을 수 없다.
+  "POST /api/v1/recipient/eligibility/nonce": () => nonces.issue(),
 
   "POST /api/v1/recipient/eligibility/verify": async (body) => {
     try {

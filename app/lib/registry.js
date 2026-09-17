@@ -3,7 +3,15 @@
 // 적격 판정과 트리 구성이 여기 한 곳에 있다. 둘이 떨어져 있으면 "판정은 적격인데
 // 트리에 자리가 없다" 같은 어긋남이 생긴다. 출력 모양은 기준값 파일
 // app/fixtures/registry.sample.json 과 같다. IM_PROJECT_PLAN.md 2.2, 2.6.1
-import { accountHash, hashToField, poseidon, recipientAccountRef, refKeyOf, toHex } from "./field.js";
+import {
+  accountHash,
+  hashToField,
+  normalizeAccountNumber,
+  poseidon,
+  recipientAccountRef,
+  refKeyOf,
+  toHex,
+} from "./field.js";
 import { config } from "../config.js";
 
 /** 회로 컴파일 시점에 고정된다. 바꾸면 회로도 같이 바꿔야 한다. 계획서 2.2 */
@@ -104,6 +112,21 @@ async function rootFromPath(leaf, pathElements, pathIndices) {
  */
 export async function buildRegistry({ accounts, params: overrides, revoked } = {}) {
   const params = { ...defaultParams, ...overrides };
+
+  // 트리 자리보다 계좌가 많으면 인덱스가 넘쳐 엉뚱한 자리의 path가 나온다.
+  if (accounts.length > 2 ** TREE_DEPTH) {
+    throw new Error(`계좌가 트리 용량 ${2 ** TREE_DEPTH}개를 넘는다: ${accounts.length}개`);
+  }
+
+  // 같은 계좌가 두 자리를 차지하면 한쪽을 폐기해도 다른 쪽 leaf로 증명이 계속 나온다.
+  // 표기만 다른 같은 계좌도 같은 계좌다.
+  const seen = new Set();
+  for (const account of accounts) {
+    const key = normalizeAccountNumber(account.accountNumber);
+    if (seen.has(key)) throw new Error(`계좌번호가 중복이다: ${account.id} (${key})`);
+    seen.add(key);
+  }
+
   const zeros = await zeroHashes(TREE_DEPTH);
   const policyHash = hashToField(params.policy);
   const issuerId = hashToField(params.issuer);

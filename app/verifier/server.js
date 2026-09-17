@@ -21,6 +21,23 @@ const now = () => Math.floor(Date.now() / 1000);
 const isHex = (value) => typeof value === "string" && /^0x[0-9a-fA-F]{1,64}$/.test(value);
 const isName = (value) => typeof value === "string" && value.length > 0 && value.length <= 64;
 
+// snarkjs는 10진 문자열을 쓴다. 우리 경계 표현인 0x hex도 함께 받아 준다.
+const isScalar = (value) => typeof value === "string" && /^([0-9]+|0x[0-9a-fA-F]+)$/.test(value);
+const isPoint = (value) => Array.isArray(value) && value.length === 3 && value.every(isScalar);
+
+/**
+ * Groth16 증명의 뼈대만 본다. 값이 맞는지는 10단계가 판단한다.
+ * 이 검사가 없으면 모양이 깨진 증명에서 검증기가 터지고, 잘못된 요청이 장애로 답해진다.
+ */
+function malformedProof(proof) {
+  if (!isPoint(proof.pi_a)) return "pi_a";
+  if (!isPoint(proof.pi_c)) return "pi_c";
+  const b = proof.pi_b;
+  const pairOk = (row) => Array.isArray(row) && row.length === 2 && row.every(isScalar);
+  if (!Array.isArray(b) || b.length !== 3 || !b.every(pairOk)) return "pi_b";
+  return null;
+}
+
 /**
  * 본문이 우리가 다룰 수 있는 모양인지 먼저 본다.
  * 이 검사를 건너뛰고 값을 파싱하면 잘못된 요청이 예외로 터지고, 바깥 catch가 그것을
@@ -29,7 +46,9 @@ const isName = (value) => typeof value === "string" && value.length > 0 && value
 function malformed(body) {
   const { recipientAccountRef, proof, publicSignals, envelope } = body ?? {};
   if (!isHex(recipientAccountRef)) return "계좌 참조값 형식";
-  if (!proof || typeof proof !== "object") return "증명 형식";
+  if (!proof || typeof proof !== "object" || Array.isArray(proof)) return "증명 형식";
+  const proofError = malformedProof(proof);
+  if (proofError) return `증명 형식 ${proofError}`;
   if (!Array.isArray(publicSignals) || publicSignals.length !== 6) return "공개 신호 개수";
   if (!publicSignals.every(isHex)) return "공개 신호 형식";
   if (!envelope || typeof envelope !== "object") return "봉투 형식";
@@ -68,14 +87,21 @@ function checkAnchor(recipientBankId, rootEpoch) {
   }
 
   if (rootEpoch === latest.rootEpoch) {
-    if (now() >= latest.validUntil) return { ok: false, detail: "Root 유효기간 경과", anchor: latest };
-    return { ok: true, detail: `최신 회차 ${latest.rootEpoch}`, anchor: latest };
+    if (now() >= latest.validUntil) {
+      return { ok: false, code: "EXPIRED", detail: "Root 유효기간 경과", anchor: latest };
+    }
+    return { ok: true, code: "CURRENT", detail: `최신 회차 ${latest.rootEpoch}`, anchor: latest };
   }
 
   if (rootEpoch === latest.rootEpoch - 1) {
     const sinceRotation = now() - latest.anchoredAt;
     if (sinceRotation > config.graceSeconds) {
-      return { ok: false, detail: `직전 회차이나 유예 ${config.graceSeconds}초 경과`, anchor: latest };
+      return {
+        ok: false,
+        code: "STALE_EPOCH",
+        detail: `직전 회차이나 유예 ${config.graceSeconds}초 경과`,
+        anchor: latest,
+      };
     }
     let previous;
     try {
@@ -84,12 +110,22 @@ function checkAnchor(recipientBankId, rootEpoch) {
       throw new ChainUnavailable(error.message);
     }
     if (now() >= previous.validUntil) {
-      return { ok: false, detail: "직전 회차 Root 유효기간 경과", anchor: previous };
+      return { ok: false, code: "EXPIRED", detail: "직전 회차 Root 유효기간 경과", anchor: previous };
     }
-    return { ok: true, detail: `직전 회차 ${rootEpoch}, 교체 후 ${sinceRotation}초`, anchor: previous };
+    return {
+      ok: true,
+      code: "GRACE",
+      detail: `직전 회차 ${rootEpoch}, 교체 후 ${sinceRotation}초`,
+      anchor: previous,
+    };
   }
 
-  return { ok: false, detail: `회차 ${rootEpoch}, 최신 ${latest.rootEpoch}`, anchor: latest };
+  return {
+    ok: false,
+    code: "STALE_EPOCH",
+    detail: `회차 ${rootEpoch}, 최신 ${latest.rootEpoch}`,
+    anchor: latest,
+  };
 }
 
 async function runChecks(body) {
@@ -152,7 +188,8 @@ async function runChecks(body) {
   // 8. 기준 Root가 지금 받아들일 수 있는 회차인지
   const anchorCheck = checkAnchor(envelope.recipientBankId, Number(envelope.rootEpoch));
   if (!step("Root 회차와 유예", anchorCheck.ok, anchorCheck.detail)) {
-    return fail(anchorCheck.detail.includes("유효기간") ? "EXPIRED" : "NOT_ELIGIBLE");
+    // 사람이 읽는 문구가 아니라 사유 코드로 고른다. 문구를 다듬어도 응답이 바뀌지 않는다.
+    return fail(anchorCheck.code === "EXPIRED" ? "EXPIRED" : "NOT_ELIGIBLE");
   }
   const anchor = anchorCheck.anchor;
 
@@ -198,7 +235,10 @@ const routes = {
       console.log(
         `[verifier] 판정=${result.status}` + (failed ? ` 멈춘 단계=${failed.name} (${failed.detail})` : ""),
       );
-      return { status: 200, body: { ...result, steps } };
+      // 어느 단계에서 멈췄는지는 시연에서 보여줘야 하지만, 운영에서는 사유를 밖으로
+      // 내보내지 않는다. 반복 조회로 계좌 사정을 추정하지 못하게 하려는 규칙이다.
+      // 감사 로그에는 설정과 무관하게 남는다.
+      return { status: 200, body: config.exposeVerificationSteps ? { ...result, steps } : result };
     } catch (error) {
       // 체인 조회 실패나 검증기 고장. 차단이 아니라 장애다.
       console.error("[verifier] 장애:", error.message);

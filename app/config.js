@@ -10,6 +10,9 @@ export const config = {
   // 개설 후 이 기간이 지나야 적격 목록에 들어간다. 대포통장 상당수가 신규 개설 계좌다.
   minAccountAgeDays: 30,
 
+  // 검증 단계 목록을 응답에 실을지. 시연에서만 켠다. 운영에서는 감사 로그에만 남긴다.
+  exposeVerificationSteps: true,
+
   // 데모 값. 계획서 2.4 ~ 2.6
   nonceTtlSeconds: 120,
   clockSkewSeconds: 120,

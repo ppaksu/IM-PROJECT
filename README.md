@@ -81,6 +81,21 @@ npm run dev
 
 Root 유효기간은 기본 300초다. 시연이 길어지면 화면의 **Root 재생성**을 누른다.
 
+## 공개망 배포
+
+Sepolia 배포와 앵커링은 `.env.sepolia` 로 따로 한다. 로컬 `.env` 와 섞으면 로컬 시연이
+공개망 주소를 조회하게 되어 전부 UNAVAILABLE이 된다.
+
+```bash
+node --env-file=.env.sepolia script/anchor-root.js
+```
+
+배포 결과는 `build/anchor.<호스트>.json` 에 적힌다. 서버가 어느 배포를 볼지는 `ANCHOR_INFO`
+하나로 정해지고, 주소와 RPC를 그 파일에서 함께 읽는다. 둘은 짝이라 한쪽만 바꾸면 없는
+주소를 다른 체인에 조회하게 된다.
+
+이미 배포한 망에 다시 배포하려 하면 멈춘다. 주소를 잃지 않기 위해서다.
+
 ## 검사
 
 ```bash

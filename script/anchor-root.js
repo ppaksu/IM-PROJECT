@@ -38,7 +38,7 @@ const latest = Number(
 const rootEpoch = latest + 1;
 const validUntil = Math.floor(Date.now() / 1000) + config.rootPeriodSeconds;
 
-run("cast", [
+const receipt = run("cast", [
   "send",
   anchorInfo.address,
   "anchorRoot(bytes32,bytes32,bytes32,bytes32,bytes32,uint64,uint64)",
@@ -55,6 +55,8 @@ run("cast", [
   DEV_KEY,
 ]);
 
-console.log(`rootEpoch ${rootEpoch} 기록`);
+// 제출 서류에 적을 값이다. 버리면 다시 찾기 어렵다.
+const txHash = receipt.match(/transactionHash\s+(0x[0-9a-fA-F]{64})/)?.[1];
+console.log(`rootEpoch ${rootEpoch} 기록${txHash ? `  tx ${txHash}` : ""}`);
 console.log(`root ${registry.eligibilityRoot}`);
 console.log(`유효기간 ${config.rootPeriodSeconds}초, 트리 안 ${registry.inTreeCount}개`);

@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { config } from "../config.js";
+import { config, env } from "../config.js";
 
 function cast(args) {
   // stderr를 물려주지 않는다. 물려주면 체인이 죽었을 때 cast의 원문이 서버 로그에 그대로
@@ -24,17 +24,31 @@ export function bankIdOf(name) {
   return cast(["keccak", name]);
 }
 
+/**
+ * 어느 배포를 볼지 고른다. 기본은 로컬이다.
+ *   ANCHOR_INFO=build/anchor.sepolia....json  으로 공개망 배포를 가리킨다.
+ *
+ * 주소와 RPC를 한 파일에서 같이 읽는 것이 요점이다. 둘은 짝이라, 한쪽만 환경변수로
+ * 바꾸면 없는 주소를 다른 체인에 조회하게 된다. 그러면 전부 UNAVAILABLE이 된다.
+ */
+function anchorInfo() {
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const file = join(ROOT, env("ANCHOR_INFO", "build/anchor.json"));
+  if (!existsSync(file)) return null;
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+
 export function anchorAddress() {
-  if (process.env.ANCHOR_ADDRESS) return process.env.ANCHOR_ADDRESS;
-  if (config.anchor.address) return config.anchor.address;
-  // 배포 스크립트가 남긴 주소
-  const file = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "build", "anchor.json");
-  if (existsSync(file)) return JSON.parse(readFileSync(file, "utf8")).address;
-  throw new Error("Anchor Contract 주소를 찾을 수 없다. script/deploy-anchor.js를 먼저 실행해라");
+  const address = env("ANCHOR_ADDRESS", config.anchor.address || anchorInfo()?.address);
+  if (!address) {
+    throw new Error("Anchor Contract 주소를 찾을 수 없다. script/deploy-anchor.js를 먼저 실행해라");
+  }
+  return address;
 }
 
 function rpcUrl() {
-  return process.env.ANCHOR_RPC_URL || config.anchor.rpcUrl;
+  // 배포 결과 파일의 RPC가 먼저다. 그 주소가 실제로 있는 체인이기 때문이다.
+  return anchorInfo()?.rpcUrl ?? env("ANCHOR_RPC_URL", config.anchor.rpcUrl);
 }
 
 function parseAnchor(raw) {

@@ -97,6 +97,7 @@
   .step-status.pending { color: var(--muted); }
   .step-status.pass { color: var(--allow); }
   .step-status.fail { color: var(--block); }
+  .warn { color: var(--block); border-color: var(--block); }
 
   /* 미니 스피너 */
   .mini-spinner {
@@ -206,7 +207,11 @@ async function refresh() {
     NEW_ACCOUNT: "신규 개설",
   };
 
-  $("epoch").textContent = `Root epoch ${state.rootEpoch}`;
+  // rootEpoch가 null이면 체인을 못 읽은 것이다. 그대로 찍으면 "Root epoch null"이 되어
+  // 화면만 보고는 준비가 덜 된 것인지 고장인지 알 수 없다.
+  $("epoch").textContent =
+    state.rootEpoch === null ? "체인 연결 없음" : `Root epoch ${state.rootEpoch}`;
+  $("epoch").classList.toggle("warn", state.rootEpoch === null);
   $("accounts").innerHTML = state.accounts.map((account) => {
     const action = account.eligible ? "revoke" : account.hot ? "restore" : null;
     const button = action

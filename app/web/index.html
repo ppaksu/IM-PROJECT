@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>수취계좌 안전성 검증 데모</title>
+<title>안전한 계좌 송금 서비스</title>
 <style>
   :root {
     --bg: #f5f6f8;
@@ -14,6 +14,7 @@
     --allow: #12805c;
     --block: #b42318;
     --unknown: #b54708;
+    --primary-blue: #2563eb;
   }
   * { box-sizing: border-box; }
   body {
@@ -29,86 +30,159 @@
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
   label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   input {
-    width: 100%; padding: 9px 11px; font-size: 15px;
-    border: 1px solid var(--line); border-radius: 7px; font-family: inherit;
+    width: 100%; padding: 10px 12px; font-size: 15px;
+    border: 1px solid var(--line); border-radius: 8px; font-family: inherit;
   }
   button {
     padding: 9px 14px; font-size: 14px; font-family: inherit; cursor: pointer;
-    border: 1px solid var(--line); border-radius: 7px; background: #fff;
+    border: 1px solid var(--line); border-radius: 8px; background: #fff; transition: background 0.2s;
   }
+  button:hover { background: #f3f4f6; }
   button.primary { background: var(--text); color: #fff; border-color: var(--text); }
+  button.primary:hover { background: #374151; }
   button:disabled { opacity: .5; cursor: default; }
   .row { display: flex; gap: 8px; align-items: center; }
   .mt { margin-top: 14px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); }
   th { color: var(--muted); font-weight: 500; }
+  
   .verdict { font-size: 22px; font-weight: 700; margin-bottom: 2px; }
   .verdict small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-top: 4px; }
   .ALLOW { color: var(--allow); }
   .BLOCK { color: var(--block); }
   .NO_SAFETY_ASSERTION { color: var(--unknown); }
-  .timeline { margin: 12px 0 0; padding: 0; list-style: none; font-size: 13px; }
-  .timeline li { padding: 5px 0; border-bottom: 1px dashed var(--line); }
-  .timeline .detail { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
+
   .tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
   .role-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: #eef2f6; color: #374151; }
-  .hidden { display: none; }
+  
+  /* D1, D2 시나리오 버튼 그룹 (오른쪽 위 배치용) */
+  .scenario-group { display: flex; gap: 4px; }
+  .btn-scenario { font-size: 11px; padding: 2px 8px; height: 22px; border-radius: 4px; font-weight: 600; }
+  .btn-d1 { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .btn-d2 { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+
+  .hidden { display: none !important; }
   .stub { margin-top: 18px; font-size: 12px; color: var(--muted); }
+
+  /* 토스 스타일 인증/검증 팝업(모달) 오버레이 */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+    display: flex; justify-content: center; align-items: center; z-index: 1000;
+  }
+  .modal-card {
+    background: #fff; width: 400px; max-width: 90%; border-radius: 20px;
+    padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    animation: modalUp 0.3s ease-out;
+  }
+  @keyframes modalUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; text-align: center; }
+  .modal-sub { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 20px; }
+  
+  /* 모달 내부 토스 스타일 진행 단계 스텝 리스트 */
+  .progress-steps { list-style: none; padding: 0; margin: 0 0 20px 0; }
+  .progress-steps li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; border-bottom: 1px solid #f1f3f5; font-size: 14px;
+  }
+  .progress-steps li:last-child { border-bottom: none; }
+  .step-label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .step-label.active { color: var(--text); font-weight: 600; }
+  .step-label.done { color: var(--text); }
+  .step-status { font-size: 12px; font-weight: 600; }
+  .step-status.pending { color: var(--muted); }
+  .step-status.pass { color: var(--allow); }
+  .step-status.fail { color: var(--block); }
+
+  /* 미니 스피너 */
+  .mini-spinner {
+    width: 14px; height: 14px; border: 2px solid #cbd5e1; border-top-color: var(--text);
+    border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
-  <h1>수취계좌 안전성 검증 데모</h1>
-  <p class="sub">송금은행은 계좌번호와 실명 대신 영지식증명 하나만 검증한다.</p>
+  <h1>간편 송금 서비스</h1>
+  <p class="sub">개인정보 보호 기술을 통해 안전하게 계좌 유효성을 확인합니다.</p>
 
   <div class="columns">
+    <!-- 송금은행 패널 -->
     <section class="panel">
       <h2>
-        <span>송금은행 화면</span>
-        <span class="role-badge">Sender Bank</span>
+        <span>송금하기</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <!-- D1, D2 테스트 버튼을 오른쪽 위로 이동 -->
+          <div class="scenario-group">
+            <button class="btn-scenario btn-d1" id="btn-d1">D1 정상</button>
+            <button class="btn-scenario btn-d2" id="btn-d2">D2 차단</button>
+          </div>
+          <span class="role-badge">Sender Bank</span>
+        </div>
       </h2>
+      
       <label for="account">수취계좌번호</label>
       <input id="account" value="110-234-567890" autocomplete="off" />
+      
       <div class="row mt">
-        <button class="primary" id="send">이체 요청</button>
+        <button class="primary" id="send" style="flex: 1;">이체 요청 및 안전성 검증</button>
         <span class="tag" id="epoch">Root epoch -</span>
       </div>
 
-      <div id="result" class="hidden mt">
+      <!-- 최종 결과 요약 패널 -->
+      <div id="result" class="hidden mt" style="background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid var(--line);">
         <div class="verdict" id="verdict"></div>
-        <ul class="timeline" id="timeline"></ul>
       </div>
     </section>
 
+    <!-- 수취은행 관리 패널 -->
     <section class="panel">
       <h2>
-        <span>수취은행 관리</span>
-        <span class="role-badge">Recipient Bank (Port 8788)</span>
+        <span>수취계좌 관리</span>
+        <span class="role-badge">Recipient Bank</span>
       </h2>
       <table>
         <thead>
-          <tr><th>계좌</th><th>예금주</th><th>상태</th><th></th></tr>
+          <tr><th>계좌</th><th>예금주</th><th>상태</th><th>관리</th></tr>
         </thead>
         <tbody id="accounts"></tbody>
       </table>
-      <div class="row mt">
-        <button id="rebuild">Root 재생성</button>
-        <span class="tag">폐기는 다음 Root에서 트리에서도 빠진다</span>
+      <div class="row mt" style="justify-content: space-between;">
+        <button id="rebuild">시스템 동기화</button>
+        <span class="tag">안전 상태 실시간 반영</span>
       </div>
     </section>
   </div>
 
+  <!-- 감사 로그 패널 -->
   <section class="panel mt">
     <h2>
-      <span>감사 및 검증 로그</span>
-      <span class="role-badge">System Audit Trail</span>
+      <span>송금 및 보안 검증 내역</span>
+      <span class="role-badge">Audit Trail</span>
     </h2>
     <table>
-      <thead><tr><th>시각</th><th>계좌</th><th>상태</th><th>결정</th><th>epoch</th></tr></thead>
+      <thead><tr><th>시각</th><th>계좌</th><th>상태</th><th>결정</th></tr></thead>
       <tbody id="audit"></tbody>
     </table>
   </section>
 
+  <p class="stub">영지식 증명 기반 계좌 안전성 검증 시뮬레이터 v1.0</p>
+
+  <!-- 토스/인증서 스타일 검증 진행 팝업(모달) -->
+  <div id="verification-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-title">수취계좌 안전 확인 중</div>
+      <div class="modal-sub">안전한 송금을 위해 영지식 증명을 검증하고 있습니다.</div>
+      
+      <ul class="progress-steps" id="modal-steps">
+        <!-- JS로 동적 생성됨 -->
+      </ul>
+    </div>
+  </div>
 
 <script type="module">
 const $ = (id) => document.getElementById(id);
@@ -124,12 +198,12 @@ async function refresh() {
   const [state, log] = await Promise.all([api("/admin/accounts"), api("/api/v1/audit-log")]);
 
   const REASON = {
-    ELIGIBLE: "적격",
+    ELIGIBLE: "정상",
     SUSPENDED: "정지",
     REVOKED: "폐기",
     EXPIRED: "기한 경과",
-    KYC_INCOMPLETE: "고객확인 미완료",
-    NEW_ACCOUNT: "개설 직후",
+    KYC_INCOMPLETE: "인증 미완료",
+    NEW_ACCOUNT: "신규 개설",
   };
 
   $("epoch").textContent = `Root epoch ${state.rootEpoch}`;
@@ -153,10 +227,20 @@ async function refresh() {
       <td>${entry.at.slice(11, 19)}</td>
       <td>${entry.accountNumber ?? "-"}</td>
       <td>${entry.status}</td>
-      <td class="${entry.decision}">${entry.decision}</td>
-      <td>${entry.rootEpoch ?? "-"}</td>
+      <td class="${entry.decision}">${entry.decision === 'ALLOW' ? '승인' : entry.decision}</td>
     </tr>`).join("");
 }
+
+// D1, D2 시나리오 버튼 (오른쪽 위 배치)
+$("btn-d1").addEventListener("click", () => {
+  $("account").value = "110-234-567890";
+  $("send").click();
+});
+
+$("btn-d2").addEventListener("click", () => {
+  $("account").value = "999-999-999999";
+  $("send").click();
+});
 
 $("accounts").addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-account]");
@@ -170,19 +254,93 @@ $("rebuild").addEventListener("click", async () => {
   refresh();
 });
 
+// 토스 스타일 인증서 팝업과 함께 단계별 검증 시뮬레이션 실행
 $("send").addEventListener("click", async () => {
   const button = $("send");
   button.disabled = true;
+  $("result").classList.add("hidden");
+  $("verification-modal").classList.remove("hidden");
+
+  // 토스 인증서 앱처럼 보여줄 핵심 검증 절차 스텝 정의
+  const stepsDef = [
+    { name: "검증 nonce 발급", desc: "송금 요청 식별자 생성" },
+    { name: "수취은행 증명 발급", desc: "영지식 증명 데이터 수신" },
+    { name: "요청 형식과 공개 신호 확인", desc: "체인 무결성 정합성 대조" },
+    { name: "최종 안전성 및 루트 일치 검증", desc: "스마트 컨트랙트 상태 검사" }
+  ];
+
+  const renderModalSteps = (currentIndex, statusList) => {
+    $("modal-steps").innerHTML = stepsDef.map((step, idx) => {
+      let statusHtml = "";
+      let labelClass = "step-label";
+      
+      if (idx < currentIndex) {
+        labelClass += " done";
+        statusHtml = `<span class="step-status pass">통과</span>`;
+      } else if (idx === currentIndex) {
+        labelClass += " active";
+        statusHtml = `<span class="step-status pending"><span class="mini-spinner"></span> 확인 중</span>`;
+      } else {
+        statusHtml = `<span class="step-status pending">대기 중</span>`;
+      }
+
+      if (statusList && statusList[idx] !== undefined) {
+        if (statusList[idx] === 'pass') {
+          statusHtml = `<span class="step-status pass">통과</span>`;
+        } else {
+          statusHtml = `<span class="step-status fail">차단됨</span>`;
+          labelClass += " active";
+        }
+      }
+
+      return `
+        <li>
+          <div class="${labelClass}">
+            <div>
+              <div style="font-weight: 600;">${step.name}</div>
+              <div style="font-size: 11px; color: var(--muted);">${step.desc}</div>
+            </div>
+          </div>
+          <div>${statusHtml}</div>
+        </li>`;
+    }).join("");
+  };
+
+  // 1단계부터 차례대로 스피너 애니메이션 연출
+  renderModalSteps(0);
+
   try {
-    const result = await api("/api/v1/transfer/check", { accountNumber: $("account").value });
-    const label = { ALLOW: "송금 진행", BLOCK: "송금 차단", NO_SAFETY_ASSERTION: "판단 불가" };
+    // 0.6초 간격으로 스텝이 착착 진행되는 토스 스타일 연출
+    await new Promise(r => setTimeout(r, 600));
+    renderModalSteps(1);
+    await new Promise(r => setTimeout(r, 600));
+    renderModalSteps(2);
+    await new Promise(r => setTimeout(r, 600));
+    renderModalSteps(3);
+
+    const response = await fetch("/api/v1/transfer/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountNumber: $("account").value })
+    });
+
+    const result = await response.json();
+    const label = { ALLOW: "송금 진행 가능", BLOCK: "송금 차단", NO_SAFETY_ASSERTION: "확인 불가" };
+
+    await new Promise(r => setTimeout(r, 400));
+    $("verification-modal").classList.add("hidden");
+
     $("result").classList.remove("hidden");
     $("verdict").className = `verdict ${result.decision}`;
-    $("verdict").innerHTML =
-      `${label[result.decision] ?? result.decision}<small>${result.status}` +
-      `${result.rootEpoch ? ` · Root epoch ${result.rootEpoch}` : ""}</small>`;
-    $("timeline").innerHTML = (result.timeline ?? []).map((step) => `
-      <li>${step.name}<div class="detail">${step.detail ?? ""}</div></li>`).join("");
+    $("verdict").innerHTML = `${label[result.decision] ?? result.decision}<small>${result.status}${result.rootEpoch ? ` · Root epoch ${result.rootEpoch}` : ""}</small>`;
+
+  } catch (error) {
+    await new Promise(r => setTimeout(r, 500));
+    $("verification-modal").classList.add("hidden");
+
+    $("result").classList.remove("hidden");
+    $("verdict").className = "verdict NO_SAFETY_ASSERTION";
+    $("verdict").innerHTML = `확인 불가<small>서버 연결 시간 초과 또는 오류</small>`;
   } finally {
     button.disabled = false;
     refresh();

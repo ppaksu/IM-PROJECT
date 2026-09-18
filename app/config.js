@@ -1,5 +1,12 @@
 // 세 서버가 공유하는 식별자와 포트. IM_PROJECT_PLAN.md 2절과 4절을 따른다.
 
+// 레포 루트의 .env를 읽는다. 없으면 그냥 넘어간다. 항목 설명은 .env.example에 있다.
+try {
+  process.loadEnvFile(new URL("../.env", import.meta.url));
+} catch {
+  /* .env가 없으면 기본값으로 동작한다 */
+}
+
 // 시간값은 환경변수로 덮을 수 있다. 유예 만료나 Root 만료를 확인하려면 이 값을 줄여야
 // 하는데, 그때마다 이 파일을 고치면 되돌리는 것을 잊고 그대로 시연에 들어간다.
 const seconds = (name, fallback) => Number(process.env[name]) || fallback;

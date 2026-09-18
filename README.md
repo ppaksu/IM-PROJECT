@@ -52,6 +52,18 @@ node script/make-registry-fixture.js
 
 값 변환은 `app/lib/field.js` 한 곳에서만 한다.
 
+## 설정
+
+```bash
+cp .env.example .env
+```
+
+`.env`는 커밋되지 않는다. 항목마다 설명이 붙어 있고, 전부 비워 두면 로컬 시연 기본값으로
+동작한다. Sepolia에 올릴 때와 만료·유예를 눈으로 확인할 때만 채운다.
+
+`ANCHOR_ISSUER_KEY`에는 시험망 전용 키만 넣는다. 이 키가 있으면 우리 은행 이름으로 Root를
+올릴 수 있다.
+
 ## 띄우기
 
 순서가 있다. anvil이 먼저다.

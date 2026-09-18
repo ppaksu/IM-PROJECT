@@ -103,6 +103,17 @@ export function startServer({ name, port, routes, staticDir = null }) {
     }
   });
 
+  // 포트를 못 잡으면 Node가 스택 추적을 뱉는다. 원인은 대개 앞서 띄운 서버가 살아 있는
+  // 것 하나뿐이라, 무엇을 하면 되는지 한 줄로 알려 준다.
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(`[${name}] 포트 ${port}이 이미 쓰이고 있다. 먼저 띄운 서버를 끄고 다시 실행해라.`);
+      console.error(`         pkill -f "app/dev.js"; pkill -f "app/.*/server.js"`);
+      process.exit(1);
+    }
+    throw error;
+  });
+
   server.listen(port, () => {
     console.log(`[${name}] http://127.0.0.1:${port}`);
   });

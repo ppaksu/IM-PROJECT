@@ -9,6 +9,7 @@ node_modules/
 # secrets and local-only files
 .env
 .env.*
+!.env.example
 *.local
 bank-secret*
 

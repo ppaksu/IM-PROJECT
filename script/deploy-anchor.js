@@ -13,15 +13,16 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { config } from "../app/config.js";
+import { config, env } from "../app/config.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const RPC = process.env.ANCHOR_RPC_URL || config.anchor.rpcUrl;
+const RPC = env("ANCHOR_RPC_URL", config.anchor.rpcUrl);
 
 // anvil이 항상 같은 값으로 만들어 주는 첫 계정이다. 로컬 체인 밖에서는 쓰지 않는다.
-const DEV_KEY =
-  process.env.ANCHOR_ISSUER_KEY ??
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const DEV_KEY = env(
+  "ANCHOR_ISSUER_KEY",
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+);
 
 function run(command, args) {
   return execFileSync(command, args, { encoding: "utf8", cwd: ROOT }).trim();

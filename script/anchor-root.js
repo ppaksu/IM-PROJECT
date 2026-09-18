@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { config } from "../app/config.js";
+import { config, env } from "../app/config.js";
 import { sha256Bytes32 } from "../app/lib/anchor.js";
 import { buildRegistry } from "../app/lib/registry.js";
 
@@ -16,15 +16,16 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // 기본은 로컬이다. 공개망에 올릴 때는 ANCHOR_INFO로 배포 결과 파일을 지정한다.
 //   ANCHOR_INFO=build/anchor.sepolia.example.json node script/anchor-root.js
 const anchorInfo = JSON.parse(
-  readFileSync(join(ROOT, process.env.ANCHOR_INFO ?? "build/anchor.json"), "utf8"),
+  readFileSync(join(ROOT, env("ANCHOR_INFO", "build/anchor.json")), "utf8"),
 );
 const accounts = JSON.parse(readFileSync(join(ROOT, "data", "accounts.json"), "utf8"));
 const registry = await buildRegistry({ accounts });
 const meta = JSON.parse(readFileSync(join(ROOT, "build", "circuit-meta.json"), "utf8"));
 
-const DEV_KEY =
-  process.env.ANCHOR_ISSUER_KEY ??
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const DEV_KEY = env(
+  "ANCHOR_ISSUER_KEY",
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+);
 
 const run = (command, args) => execFileSync(command, args, { encoding: "utf8", cwd: ROOT }).trim();
 const rpc = anchorInfo.rpcUrl;

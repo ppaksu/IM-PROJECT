@@ -12,7 +12,7 @@ import {
   refKeyOf,
   toHex,
 } from "./field.js";
-import { config } from "../config.js";
+import { config, env } from "../config.js";
 
 /** 회로 컴파일 시점에 고정된다. 바꾸면 회로도 같이 바꿔야 한다. 계획서 2.2 */
 export const TREE_DEPTH = 16;
@@ -27,7 +27,7 @@ export const defaultParams = {
   policy: "recipient-eligibility-v2",
   issuer: config.recipientIssuerId,
   // 데모 전용 고정 키다. 운영에서는 HSM이나 KMS에 두고 절대 문서에 적지 않는다.
-  bankSecret: process.env.BANK_SECRET ?? "demo-bank-secret-do-not-use-in-production",
+  bankSecret: env("BANK_SECRET", "demo-bank-secret-do-not-use-in-production"),
   validUntil: 1791590400,
   minAccountAgeDays: config.minAccountAgeDays,
 };

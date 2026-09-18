@@ -376,6 +376,17 @@ console.log("\n[Registry 무결성]");
   await rejects("트리 용량을 넘는 계좌 수 거절",
     Array.from({ length: 2 ** 16 + 1 }, (_, i) => ({ id: `X${i}`, accountNumber: String(i), ...base })));
 
+  // .env에 항목을 비워 두면 기본값으로 떨어져야 한다. 빈 문자열이 그대로 흘러가면
+  // 은행 비밀키가 ""가 되어 아무 오류 없이 다른 Root가 나온다.
+  const fixture = JSON.parse(readFileSync(join(ROOT, "app", "fixtures", "registry.sample.json"), "utf8"));
+  const before = process.env.BANK_SECRET;
+  process.env.BANK_SECRET = "";
+  const { buildRegistry: rebuilt } = await import(`../app/lib/registry.js?empty=${Date.now()}`);
+  const blank = await rebuilt({ accounts: ACCOUNTS });
+  if (before === undefined) delete process.env.BANK_SECRET;
+  else process.env.BANK_SECRET = before;
+  check("빈 BANK_SECRET은 기본값으로 떨어진다", blank.eligibilityRoot === fixture.eligibilityRoot, blank.eligibilityRoot);
+
   const empty = await buildRegistry({ accounts: [] });
   check("계좌가 없으면 빈 트리 Root", empty.eligibilityRoot === empty.derived.zeroSubtreeHashes[16], empty.eligibilityRoot);
   check("빈 트리에는 record가 없다", empty.records.length === 0);

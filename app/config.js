@@ -11,6 +11,17 @@ try {
 // 하는데, 그때마다 이 파일을 고치면 되돌리는 것을 잊고 그대로 시연에 들어간다.
 const seconds = (name, fallback) => Number(process.env[name]) || fallback;
 
+/**
+ * 환경변수를 읽되 빈 문자열은 없는 것으로 본다.
+ * ?? 를 쓰면 .env에 `ANCHOR_ISSUER_KEY=` 처럼 비워 둔 항목이 기본값으로 안 떨어지고
+ * 빈 문자열 그대로 흘러간다. 키라면 그 자리에서 터지지만 은행 비밀키라면 조용히
+ * 다른 Root가 나온다.
+ */
+export const env = (name, fallback) => {
+  const value = process.env[name];
+  return value === undefined || value === "" ? fallback : value;
+};
+
 export const config = {
   protocolVersion: "1",
   senderBankId: "bank-a",

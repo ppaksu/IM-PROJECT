@@ -10,7 +10,13 @@ import { fileURLToPath } from "node:url";
 import { config } from "../config.js";
 
 function cast(args) {
-  return execFileSync("cast", args, { encoding: "utf8", timeout: 10_000 }).trim();
+  // stderr를 물려주지 않는다. 물려주면 체인이 죽었을 때 cast의 원문이 서버 로그에 그대로
+  // 쏟아져, 우리가 붙인 안내가 묻힌다. 실패는 예외로만 알린다.
+  return execFileSync("cast", args, {
+    encoding: "utf8",
+    timeout: 10_000,
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
 }
 
 /** 은행 식별자 문자열의 keccak 해시. 컨트랙트의 bankId다. */

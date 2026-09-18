@@ -52,6 +52,23 @@ node script/make-registry-fixture.js
 
 값 변환은 `app/lib/field.js` 한 곳에서만 한다.
 
+## 띄우기
+
+순서가 있다. anvil이 먼저다.
+
+```bash
+anvil &
+node script/deploy-anchor.js
+node script/anchor-root.js
+npm run dev
+```
+
+`npm run dev`가 뜨면서 `rootEpoch`와 남은 유효기간을 알려 준다. 체인이 없거나 Root가
+없으면 그 자리에서 무엇을 먼저 하라고 알려 준다. 화면이 "검증 불가"만 띄우는 것은 대부분
+이 준비가 덜 된 경우다. 고장이 아니라, 판단 근거가 없을 때 허용도 차단도 하지 않는 것이다.
+
+Root 유효기간은 기본 300초다. 시연이 길어지면 화면의 **Root 재생성**을 누른다.
+
 ## 검사
 
 ```bash

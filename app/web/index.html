@@ -188,6 +188,8 @@
 <script type="module">
 const $ = (id) => document.getElementById(id);
 
+const DECISION_LABEL = { ALLOW: "승인", BLOCK: "차단", NO_SAFETY_ASSERTION: "확인 불가" };
+
 async function api(path, body) {
   const response = await fetch(path, body
     ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
@@ -232,7 +234,7 @@ async function refresh() {
       <td>${entry.at.slice(11, 19)}</td>
       <td>${entry.accountNumber ?? "-"}</td>
       <td>${entry.status}</td>
-      <td class="${entry.decision}">${entry.decision === 'ALLOW' ? '승인' : entry.decision}</td>
+      <td class="${entry.decision}">${DECISION_LABEL[entry.decision] ?? entry.decision}</td>
     </tr>`).join("");
 }
 
@@ -243,7 +245,9 @@ $("btn-d1").addEventListener("click", () => {
 });
 
 $("btn-d2").addEventListener("click", () => {
-  $("account").value = "999-999-999999";
+  // 등록된 계좌가 판정으로 막히는 것을 보여준다. 없는 계좌가 막히는 것은
+  // 이 시스템이 아니어도 당연해서 시연 가치가 없다.
+  $("account").value = "110-234-333333";
   $("send").click();
 });
 

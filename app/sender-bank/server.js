@@ -14,9 +14,10 @@ const WEB_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "web");
 const auditLog = [];
 
 function audit(entry) {
-  // 한국 시간(+9시간) 오프셋을 직접 반영
-  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString();
-  auditLog.unshift({ at: kst, ...entry });
+  // 한국 시간으로 남긴다. 9시간을 더한 뒤 toISOString을 쓰면 안 된다. 끝의 Z가 UTC라고
+  // 말하는데 값은 KST라, 감사 기록이 자기 시간대를 두고 거짓말을 하게 된다.
+  const at = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }) + "+09:00";
+  auditLog.unshift({ at, ...entry });
   auditLog.length = Math.min(auditLog.length, 50);
 }
 

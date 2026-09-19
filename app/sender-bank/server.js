@@ -14,7 +14,9 @@ const WEB_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "web");
 const auditLog = [];
 
 function audit(entry) {
-  auditLog.unshift({ at: new Date().toISOString(), ...entry });
+  // 한국 시간(+9시간) 오프셋을 직접 반영
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString();
+  auditLog.unshift({ at: kst, ...entry });
   auditLog.length = Math.min(auditLog.length, 50);
 }
 
